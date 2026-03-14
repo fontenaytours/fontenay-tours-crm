@@ -245,15 +245,15 @@ export default function App() {
       )}
 
       {/* Nav */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 20px", background: F_BLUE, boxShadow: "0 2px 12px rgba(23,36,78,0.3)", position: "sticky", top: 0, zIndex: 10, flexWrap: "wrap", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 20px", background: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)", position: "sticky", top: 0, zIndex: 10, flexWrap: "wrap", gap: 8, borderBottom: "2px solid #f1f5f9" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <img src="/logo FONTENAY TOURS OK.png" alt="Fontenay Tours" style={{ height: 36, objectFit: "contain" }} />
-          <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 700 }}>CRM</span>
+          <img src="/logo FONTENAY TOURS OK.png" alt="Fontenay Tours" style={{ height: 40, objectFit: "contain" }} />
+          <span style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, letterSpacing: 2 }}>CRM</span>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           {[["form", "📋 Registrar"], ["dashboard", "📊 Dashboard"], ["lista", "👥 Registros"], ["reglas", "🏆 Premios"]].map(([v, l]) => (
             <button key={v} onClick={() => { setView(v); if (v === "form") setStep(0); }}
-              style={{ padding: "7px 14px", borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: view === v ? F_ORANGE : "rgba(255,255,255,0.12)", color: F_WHITE, transition: "all 0.2s" }}>{l}</button>
+              style={{ padding: "7px 14px", borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: view === v ? F_ORANGE : "#f1f5f9", color: view === v ? F_WHITE : F_BLUE, transition: "all 0.2s" }}>{l}</button>
           ))}
           {enOficina.length > 0 && <div style={{ background: "#fef3c7", color: "#92400e", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700 }}>⏳ {enOficina.length} en oficina</div>}
         </div>
