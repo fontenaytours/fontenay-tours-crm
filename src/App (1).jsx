@@ -247,10 +247,8 @@ export default function App() {
       {/* Nav */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 20px", background: F_BLUE, boxShadow: "0 2px 12px rgba(23,36,78,0.3)", position: "sticky", top: 0, zIndex: 10, flexWrap: "wrap", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ background: F_ORANGE, borderRadius: 10, padding: "6px 12px" }}>
-            <span style={{ color: "white", fontWeight: 800, fontSize: 14, letterSpacing: 1 }}>FONTENAY</span>
-          </div>
-          <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>CRM</span>
+          <img src="/logo FONTENAY TOURS OK.png" alt="Fontenay Tours" style={{ height: 36, objectFit: "contain" }} />
+          <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 700 }}>CRM</span>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           {[["form", "📋 Registrar"], ["dashboard", "📊 Dashboard"], ["lista", "👥 Registros"], ["reglas", "🏆 Premios"]].map(([v, l]) => (
