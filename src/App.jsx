@@ -293,7 +293,30 @@ export default function App() {
                 <span style={{ background: "#ede9fe", color: "#6366f1", padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>{pts}</span>
               </div>
             ))}
-          </div>
+          </div><div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14 }}>
+  <p style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#22c55e" }}>💼 Si sos vendedor, ganás por...</p>
+  {[["💵","Cerrar una venta","cuenta como 1 venta"],["👥","Cantidad de clientes vendidos","más personas = más peso"],["📈","Mayor monto total vendido","el monto define el ranking"]].map(([ico,accion,det]) => (
+    <div key={accion} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
+      <span style={{ fontSize: 22, width: 32, textAlign: "center" }}>{ico}</span>
+      <div style={{ flex: 1 }}><p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{accion}</p><p style={{ margin: 0, fontSize: 11, color: "#94a3b8" }}>{det}</p></div>
+    </div>
+  ))}
+  <p style={{ margin: "12px 0 0", fontSize: 12, color: "#94a3b8" }}>El vendedor con mayor monto al viernes gana la semana 🥇</p>
+</div>
+<div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14, borderLeft: "4px solid #FF5320" }}>
+  <p style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 800, color: "#17244E" }}>✏️ ¿Puedo editar un registro?</p>
+  <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>Sí, pero solo durante las <b>primeras 2 horas</b> desde que lo cargaste. Después queda bloqueado para mantener la integridad de los datos.</p>
+</div>
+<div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14 }}>
+  <p style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#17244E" }}>🎖️ Niveles (promotores)</p>
+  {[["🥇 Oro","300+ puntos","#f59e0b"],["🥈 Plata","150–299 puntos","#94a3b8"],["🥉 Bronce","0–149 puntos","#cd7f32"]].map(([n,pts,c]) => (
+    <div key={n} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 12px", borderRadius: 10, background: c+"18", marginBottom: 8 }}>
+      <span style={{ fontSize: 20 }}>{n.split(" ")[0]}</span>
+      <div style={{ flex: 1 }}><p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: c }}>{n}</p></div>
+      <span style={{ fontSize: 12, color: c, fontWeight: 700 }}>{pts}</span>
+    </div>
+  ))}
+</div>
           <button onClick={() => { setView("form"); setStep(0); }} style={{ width: "100%", padding: "16px", borderRadius: 16, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white", border: "none", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 20 }}>
             ¡Empezar a registrar! 🚀
           </button>
