@@ -414,15 +414,16 @@ export default function App() {
     .filter(([key]) => Number(key) !== currentWeekKey)
     .sort((a, b) => Number(b[0]) - Number(a[0]));
 
-  // Consistencia acumulada: contar semanas donde cada persona fue top
+  // Consistencia: solo últimas 4 semanas anteriores (bonus mensual)
   function calcConsistencia() {
     const promotorWins = {}, vendedorWins = {};
-    historialWeeks.forEach(([, regs]) => {
+    const last4 = historialWeeks.slice(0, 4);
+    last4.forEach(([, regs]) => {
       const { promotorWinner, vendedorWinner } = getWinnersForWeek(regs);
       if (promotorWinner) promotorWins[promotorWinner[0]] = (promotorWins[promotorWinner[0]] || 0) + 1;
       if (vendedorWinner) vendedorWins[vendedorWinner[0]] = (vendedorWins[vendedorWinner[0]] || 0) + 1;
     });
-    return { promotorWins, vendedorWins };
+    return { promotorWins, vendedorWins, semanas: last4.length };
   }
   const consistencia = calcConsistencia();
 
@@ -592,8 +593,8 @@ export default function App() {
           {/* Bonus de consistencia */}
           {historialWeeks.length > 0 && (
             <div style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", borderRadius: 18, padding: 20, marginBottom: 20, color: "white" }}>
-              <p style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 800 }}>⭐ Bonus de Consistencia</p>
-              <p style={{ margin: "0 0 14px", fontSize: 11, opacity: 0.8 }}>Semanas ganadas en el historial</p>
+              <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 800 }}>⭐ Bonus de Consistencia Mensual</p>
+              <p style={{ margin: "0 0 14px", fontSize: 11, opacity: 0.8 }}>Últimas {consistencia.semanas} semanas · $20 USD extra para quien demuestra que semana a semana siempre está en el top 🔥</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, opacity: 0.8 }}>🏃 PROMOTORES</p>
