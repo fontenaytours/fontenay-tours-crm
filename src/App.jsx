@@ -594,7 +594,13 @@ export default function App() {
           {historialWeeks.length > 0 && (
             <div style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", borderRadius: 18, padding: 20, marginBottom: 20, color: "white" }}>
               <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 800 }}>⭐ Bonus de Consistencia Mensual</p>
-              <p style={{ margin: "0 0 14px", fontSize: 11, opacity: 0.8 }}>Últimas {consistencia.semanas} semanas · $20 USD extra para quien demuestra que semana a semana siempre está en el top 🔥</p>
+              <p style={{ margin: "0 0 6px", fontSize: 11, opacity: 0.8 }}>El $20 USD extra se entrega al final de cada ciclo de 4 semanas · al que más veces ganó en ese período</p>
+              <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                {[1,2,3,4].map(n => (
+                  <div key={n} style={{ flex: 1, height: 6, borderRadius: 4, background: n <= consistencia.semanas ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.25)" }} />
+                ))}
+              </div>
+              <p style={{ margin: "0 0 14px", fontSize: 11, opacity: 0.7 }}>Semana {consistencia.semanas} de 4 — {4 - consistencia.semanas} semana{4 - consistencia.semanas !== 1 ? "s" : ""} restante{4 - consistencia.semanas !== 1 ? "s" : ""} para cerrar el ciclo</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, opacity: 0.8 }}>🏃 PROMOTORES</p>
