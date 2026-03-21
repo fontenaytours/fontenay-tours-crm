@@ -468,7 +468,7 @@ export default function App() {
           <span style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, letterSpacing: 2 }}>CRM</span>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          {[["form", "📋 Registrar"], ["dashboard", "📊 Dashboard"], ["lista", "👥 Registros"], ["reglas", "🏆 Premios"], ["historial", "📈 Historial"]].map(([v, l]) => (
+          {[["form", "📋 Registrar"], ["dashboard", "📊 Dashboard"], ["lista", "👥 Registros"], ["reglas", "🏆 Premios"], ["historial", "📅 Historial"]].map(([v, l]) => (
             <button key={v} onClick={() => { setView(v); if (v === "form") setStep(0); }}
               style={{ padding: "7px 14px", borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: view === v ? F_ORANGE : "#f1f5f9", color: view === v ? F_WHITE : F_BLUE, transition: "all 0.2s" }}>{l}</button>
           ))}
@@ -586,7 +586,7 @@ export default function App() {
       {view === "historial" && (
         <div style={{ maxWidth: 700, margin: "0 auto", padding: 20 }}>
           <div style={{ margin: "16px 0 20px" }}>
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: "#1e293b", margin: "0 0 4px" }}>📈 Estado de Resultados</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: "#1e293b", margin: "0 0 4px" }}>📅 Estado de Resultados</h2>
             <p style={{ color: "#64748b", fontSize: 12, margin: 0 }}>Historial semanal · {registros.length} registros totales</p>
           </div>
 
