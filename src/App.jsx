@@ -248,7 +248,7 @@ function WeekCard({ weekSat, weekFri, registros, isOpen, onToggle, weekNum }) {
 
           {/* Ranking vendedores */}
           {Object.keys(metrics.byVendedor).length > 0 && (
-            <div>
+            <div style={{ marginBottom: 14 }}>
               <p style={{ margin: "0 0 8px", fontWeight: 700, fontSize: 13, color: "#1e293b" }}>💼 Ranking Vendedores</p>
               {Object.entries(metrics.byVendedor).sort((a, b) => b[1].monto - a[1].monto).map(([n, d], i) => (
                 <div key={n} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "8px 10px", borderRadius: 10, background: i === 0 ? "#f0fdf4" : "#f8fafc" }}>
@@ -263,6 +263,27 @@ function WeekCard({ weekSat, weekFri, registros, isOpen, onToggle, weekNum }) {
               ))}
             </div>
           )}
+
+          {/* Intereses de la semana */}
+          {(() => {
+            const interesesCount = {};
+            registros.forEach(r => (r.intereses || []).forEach(i => { interesesCount[i] = (interesesCount[i] || 0) + 1; }));
+            const sorted = Object.entries(interesesCount).sort((a, b) => b[1] - a[1]);
+            if (sorted.length === 0) return null;
+            return (
+              <div>
+                <p style={{ margin: "0 0 8px", fontWeight: 700, fontSize: 13, color: "#1e293b" }}>🎯 Intereses de la semana</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {sorted.map(([interes, count]) => (
+                    <div key={interes} style={{ background: "#f1f5f9", borderRadius: 20, padding: "5px 12px", display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 12, color: "#1e293b" }}>{interes}</span>
+                      <span style={{ background: "#6366f1", color: "white", borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>{count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
@@ -525,6 +546,18 @@ export default function App() {
             </div>
           </div>
           <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14 }}>
+            <p style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#22c55e" }}>💼 Vendedores — cómo participan</p>
+            {[["💰", "Ventas cerradas", "Se rankea por monto facturado"], ["🎯", "Ticket promedio", "Mayor valor por cliente suma"], ["🔄", "Retornos vendidos", "Los retornos también cuentan"]].map(([ico, accion, desc]) => (
+              <div key={accion} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
+                <span style={{ fontSize: 22, width: 32, textAlign: "center" }}>{ico}</span>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{accion}</p>
+                  <p style={{ margin: 0, fontSize: 11, color: "#94a3b8" }}>{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14 }}>
             <p style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#6366f1" }}>🏃 Promotores — sistema de puntos</p>
             {[["🗣", "Hablar con alguien", "2 pts por persona"], ["🏢", "Meterlos a la oficina", "3 pts por persona"], ["💰", "Que se venda", "5 pts por persona"], ["🔄", "Retorno que compra", "5 pts extra"]].map(([ico, accion, pts]) => (
               <div key={accion} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
@@ -741,9 +774,9 @@ export default function App() {
               <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
                 <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700 }}>🎯 Embudo</h3>
                 <div style={{ display: "flex", justifyContent: "space-around" }}>
-                  <MiniPie value={totalPersonas} max={50} color="#6366f1" label="Contactos" sub="meta 50" />
-                  <MiniPie value={totalIngresaron} max={20} color="#0ea5e9" label="Ingresos" sub="meta 20" />
-                  <MiniPie value={totalVendidos} max={10} color="#22c55e" label="Ventas" sub="meta 10" />
+                  <MiniPie value={totalPersonas} max={300} color="#6366f1" label="Contactos" sub="meta 300" />
+                  <MiniPie value={totalIngresaron} max={300} color="#0ea5e9" label="Ingresos" sub="meta 300" />
+                  <MiniPie value={totalVendidos} max={120} color="#22c55e" label="Ventas" sub="meta 120" />
                   <MiniPie value={parseFloat(convRate)} max={100} color="#f59e0b" label="Conv." sub="%" />
                 </div>
               </div>
