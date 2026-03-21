@@ -547,7 +547,7 @@ export default function App() {
           </div>
           <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14 }}>
             <p style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#22c55e" }}>💼 Vendedores — cómo participan</p>
-            {[["💰", "Ventas cerradas", "Se rankea por monto facturado"], ["🎯", "Ticket promedio", "Mayor valor por cliente suma"], ["🔄", "Retornos vendidos", "Los retornos también cuentan"]].map(([ico, accion, desc]) => (
+            {[["💰", "Más ventas, más peso", "Cada venta suma al ranking semanal"], ["📊", "El ranking lo define el monto", "Gana quien más $ ARS facturó en la semana"], ["🔄", "Retornos vendidos cuentan", "Una venta de retorno suma igual que una nueva"]].map(([ico, accion, desc]) => (
               <div key={accion} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
                 <span style={{ fontSize: 22, width: 32, textAlign: "center" }}>{ico}</span>
                 <div style={{ flex: 1 }}>
@@ -556,6 +556,14 @@ export default function App() {
                 </div>
               </div>
             ))}
+
+          </div>
+          <div style={{ background: "linear-gradient(135deg,#f0f9ff,#e0f2fe)", borderRadius: 18, padding: 18, marginBottom: 14, border: "1px solid #bae6fd", display: "flex", gap: 14, alignItems: "center" }}>
+            <span style={{ fontSize: 32 }}>⏱️</span>
+            <div>
+              <p style={{ margin: "0 0 4px", fontWeight: 800, fontSize: 14, color: "#0369a1" }}>Regla de transparencia</p>
+              <p style={{ margin: 0, fontSize: 12, color: "#0c4a6e", lineHeight: 1.5 }}>Los registros se pueden editar hasta <b>2 horas</b> después de cargados. Pasado ese tiempo quedan fijos para garantizar la integridad del concurso.</p>
+            </div>
           </div>
           <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14 }}>
             <p style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#6366f1" }}>🏃 Promotores — sistema de puntos</p>
