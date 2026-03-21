@@ -154,8 +154,8 @@ function WeekCard({ weekSat, weekFri, registros, isOpen, onToggle, weekNum }) {
   const nivelPromotor = (p) => {
     const d = metrics.byPromotor[p] || {};
     const pts = calcPuntos(d);
-    if (pts >= 50) return { nivel: "🥇 Oro", color: "#f59e0b" };
-    if (pts >= 25) return { nivel: "🥈 Plata", color: "#94a3b8" };
+    if (pts >= 300) return { nivel: "🥇 Oro", color: "#f59e0b" };
+    if (pts >= 150) return { nivel: "🥈 Plata", color: "#94a3b8" };
     return { nivel: "🥉 Bronce", color: "#cd7f32" };
   };
 
@@ -402,8 +402,8 @@ export default function App() {
   const nivelPromotor = (p) => {
     const d = metrics.byPromotor[p] || {};
     const pts = calcPuntos(d);
-    if (pts >= 50) return { nivel: "🥇 Oro", color: "#f59e0b" };
-    if (pts >= 25) return { nivel: "🥈 Plata", color: "#94a3b8" };
+    if (pts >= 300) return { nivel: "🥇 Oro", color: "#f59e0b" };
+    if (pts >= 150) return { nivel: "🥈 Plata", color: "#94a3b8" };
     return { nivel: "🥉 Bronce", color: "#cd7f32" };
   };
 
