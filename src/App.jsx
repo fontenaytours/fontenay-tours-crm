@@ -790,7 +790,7 @@ export default function App() {
                 <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700 }}>🎯 Embudo</h3>
                 <div style={{ display: "flex", justifyContent: "space-around" }}>
                   <MiniPie value={totalPersonas} max={300} color="#6366f1" label="Contactos" sub="meta 300" />
-                  <MiniPie value={totalIngresaron} max={300} color="#0ea5e9" label="Ingresos" sub="meta 300" />
+                  <MiniPie value={totalIngresaron} max={180} color="#0ea5e9" label="Ingresos" sub="meta 180" />
                   <MiniPie value={totalVendidos} max={120} color="#22c55e" label="Ventas" sub="meta 120" />
                   <MiniPie value={parseFloat(convRate)} max={100} color="#f59e0b" label="Conv." sub="%" />
                 </div>
