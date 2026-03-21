@@ -20,13 +20,45 @@ function getTimeStr() { return new Date().toLocaleTimeString("es-AR", { hour: "2
 function fmtARS(n) { return "$ " + (n || 0).toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
 function isEditable(r) { return Date.now() - (r.timestamp || 0) < EDIT_WINDOW_MS; }
 function minutosRestantes(r) { return Math.max(0, Math.ceil((EDIT_WINDOW_MS - (Date.now() - (r.timestamp || 0))) / 60000)); }
+
 function getWeekRange(date) {
   const d = new Date(date), day = d.getDay();
   const sat = new Date(d); sat.setDate(d.getDate() + (day >= 6 ? 0 : -(day + 1))); sat.setHours(0, 0, 0, 0);
   const fri = new Date(sat); fri.setDate(sat.getDate() + 6); fri.setHours(23, 59, 59, 999);
   return { sat, fri };
 }
+
+function getPrevWeekRange() {
+  const { sat } = getWeekRange(new Date());
+  const dayBefore = new Date(sat.getTime() - 24 * 60 * 60 * 1000);
+  return getWeekRange(dayBefore);
+}
+
 function fmtDate(d) { return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" }); }
+
+function filterByWeekRange(registros, { sat, fri }) {
+  return registros.filter(r => {
+    const ts = r.timestamp || 0;
+    return ts >= sat.getTime() && ts <= fri.getTime();
+  });
+}
+
+function getWeekKey(timestamp) {
+  const { sat } = getWeekRange(new Date(timestamp));
+  return sat.getTime();
+}
+
+function groupByWeek(registros) {
+  const byWeek = {};
+  registros.forEach(r => {
+    const ts = r.timestamp || 0;
+    if (!ts) return;
+    const key = getWeekKey(ts);
+    if (!byWeek[key]) byWeek[key] = [];
+    byWeek[key].push(r);
+  });
+  return byWeek;
+}
 
 function exportCSV(registros) {
   const { sat, fri } = getWeekRange(new Date());
@@ -76,6 +108,17 @@ function calcMetrics(registros) {
   return { byPromotor, byVendedor, bySucursal };
 }
 
+function calcPuntos(d) {
+  return (d.contactos || 0) * 2 + (d.ingresaron || 0) * 3 + (d.vendidos || 0) * 5;
+}
+
+function getWinnersForWeek(registros) {
+  const m = calcMetrics(registros);
+  const promotorWinner = Object.entries(m.byPromotor).sort((a, b) => calcPuntos(b[1]) - calcPuntos(a[1]))[0];
+  const vendedorWinner = Object.entries(m.byVendedor).sort((a, b) => b[1].monto - a[1].monto)[0];
+  return { promotorWinner, vendedorWinner, metrics: m };
+}
+
 function MiniPie({ value, max, color, label, sub }) {
   const pct = Math.min(value / (max || 1), 1), r = 30, cx = 34, cy = 34, circ = 2 * Math.PI * r;
   return (
@@ -101,6 +144,131 @@ function StatusBadge({ r }) {
   return <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "#f1f5f9", color: "#64748b" }}>🗣 Contacto</span>;
 }
 
+function WeekCard({ weekSat, weekFri, registros, isOpen, onToggle, weekNum }) {
+  const { promotorWinner, vendedorWinner, metrics } = getWinnersForWeek(registros);
+  const totalPersonas = registros.reduce((a, r) => a + (r.grupoSize || 1), 0);
+  const totalVendidos = registros.filter(r => r.vendido).reduce((a, r) => a + (r.grupoSize || 1), 0);
+  const totalMonto = registros.reduce((a, r) => a + (r.monto || 0), 0);
+  const convRate = totalPersonas > 0 ? ((totalVendidos / totalPersonas) * 100).toFixed(1) : 0;
+
+  const nivelPromotor = (p) => {
+    const d = metrics.byPromotor[p] || {};
+    const pts = calcPuntos(d);
+    if (pts >= 50) return { nivel: "🥇 Oro", color: "#f59e0b" };
+    if (pts >= 25) return { nivel: "🥈 Plata", color: "#94a3b8" };
+    return { nivel: "🥉 Bronce", color: "#cd7f32" };
+  };
+
+  return (
+    <div style={{ background: "white", borderRadius: 16, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 12, overflow: "hidden", border: "1px solid #f1f5f9" }}>
+      <button onClick={onToggle} style={{ width: "100%", padding: "14px 20px", background: "none", border: "none", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ textAlign: "left" }}>
+          <p style={{ margin: 0, fontWeight: 800, fontSize: 14, color: F_BLUE }}>
+            {weekNum ? `Semana ${weekNum}: ` : ""}{fmtDate(weekSat)} → {fmtDate(weekFri)}
+          </p>
+          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#64748b" }}>
+            {registros.length} registros · {totalPersonas} personas · {fmtARS(totalMonto)}
+          </p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {promotorWinner && (
+            <span style={{ background: "#fef3c7", color: "#92400e", padding: "3px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700 }}>
+              🏃 {promotorWinner[0]}
+            </span>
+          )}
+          {vendedorWinner && (
+            <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700 }}>
+              💼 {vendedorWinner[0]}
+            </span>
+          )}
+          <span style={{ fontSize: 16, color: "#94a3b8", fontWeight: 700 }}>{isOpen ? "▲" : "▼"}</span>
+        </div>
+      </button>
+
+      {isOpen && (
+        <div style={{ padding: "0 20px 20px", borderTop: "1px solid #f1f5f9" }}>
+          {/* Ganadores */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, margin: "16px 0" }}>
+            <div style={{ background: "linear-gradient(135deg,#f59e0b,#f97316)", borderRadius: 12, padding: "14px", color: "white" }}>
+              <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, opacity: 0.85 }}>🏆 MEJOR PROMOTOR</p>
+              {promotorWinner ? (
+                <>
+                  <p style={{ margin: "0 0 2px", fontSize: 16, fontWeight: 800 }}>{promotorWinner[0]}</p>
+                  <p style={{ margin: 0, fontSize: 11, opacity: 0.9 }}>
+                    {calcPuntos(promotorWinner[1])} pts · {promotorWinner[1].personas} contactos
+                  </p>
+                </>
+              ) : <p style={{ margin: 0, fontSize: 13, opacity: 0.8 }}>Sin datos</p>}
+            </div>
+            <div style={{ background: "linear-gradient(135deg,#22c55e,#16a34a)", borderRadius: 12, padding: "14px", color: "white" }}>
+              <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, opacity: 0.85 }}>🏆 MEJOR VENDEDOR</p>
+              {vendedorWinner ? (
+                <>
+                  <p style={{ margin: "0 0 2px", fontSize: 16, fontWeight: 800 }}>{vendedorWinner[0]}</p>
+                  <p style={{ margin: 0, fontSize: 11, opacity: 0.9 }}>
+                    {vendedorWinner[1].ventas} ventas · {fmtARS(vendedorWinner[1].monto)}
+                  </p>
+                </>
+              ) : <p style={{ margin: 0, fontSize: 13, opacity: 0.8 }}>Sin ventas</p>}
+            </div>
+          </div>
+
+          {/* Stats resumen */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 }}>
+            {[["👥", "Contactos", totalPersonas], ["🏢", "Ingresos", registros.filter(r => r.ingreso).reduce((a,r) => a+(r.grupoSize||1), 0)], ["💰", "Vendidos", totalVendidos], ["🎯", "Conv.", convRate + "%"]].map(([ico, label, val]) => (
+              <div key={label} style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 8px", textAlign: "center" }}>
+                <p style={{ margin: 0, fontSize: 16 }}>{ico}</p>
+                <p style={{ margin: "2px 0 0", fontSize: 16, fontWeight: 800, color: "#1e293b" }}>{val}</p>
+                <p style={{ margin: 0, fontSize: 9, color: "#94a3b8", fontWeight: 600 }}>{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Ranking promotores */}
+          {Object.keys(metrics.byPromotor).length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <p style={{ margin: "0 0 8px", fontWeight: 700, fontSize: 13, color: "#1e293b" }}>🏃 Ranking Promotores</p>
+              {Object.entries(metrics.byPromotor).sort((a, b) => calcPuntos(b[1]) - calcPuntos(a[1])).map(([n, d], i) => {
+                const nv = nivelPromotor(n);
+                const pts = calcPuntos(d);
+                return (
+                  <div key={n} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "8px 10px", borderRadius: 10, background: i === 0 ? "#fef9c3" : "#f8fafc" }}>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: "#94a3b8", width: 18 }}>{i + 1}</span>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{n}</p>
+                      <p style={{ margin: 0, fontSize: 11, color: "#64748b" }}>{d.personas} cont · {d.ingresaron} ing · {d.vendidos} ventas</p>
+                    </div>
+                    <span style={{ background: nv.color + "22", color: nv.color, padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700 }}>{pts} pts</span>
+                    {i === 0 && <span style={{ fontSize: 14 }}>🥇</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Ranking vendedores */}
+          {Object.keys(metrics.byVendedor).length > 0 && (
+            <div>
+              <p style={{ margin: "0 0 8px", fontWeight: 700, fontSize: 13, color: "#1e293b" }}>💼 Ranking Vendedores</p>
+              {Object.entries(metrics.byVendedor).sort((a, b) => b[1].monto - a[1].monto).map(([n, d], i) => (
+                <div key={n} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "8px 10px", borderRadius: 10, background: i === 0 ? "#f0fdf4" : "#f8fafc" }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: "#94a3b8", width: 18 }}>{i + 1}</span>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{n}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: "#64748b" }}>{d.ventas} ventas · {d.clientes} clientes</p>
+                  </div>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: "#22c55e" }}>{fmtARS(d.monto)}</span>
+                  {i === 0 && <span style={{ fontSize: 14 }}>🥇</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const FORM_STEPS = ["inicio", "promotor", "sucursal", "vendedor", "pasajero", "grupo", "intereses", "fase"];
 
 export default function App() {
@@ -116,6 +284,7 @@ export default function App() {
   const [editModal, setEditModal] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [dashTab, setDashTab] = useState("operativo");
+  const [openWeeks, setOpenWeeks] = useState({});
 
   const cargar = useCallback(async () => {
     try {
@@ -134,6 +303,13 @@ export default function App() {
     const iv = setInterval(cargar, 20000);
     return () => clearInterval(iv);
   }, [cargar]);
+
+  // ── Semana actual y anterior ──────────────────────────────────────────────
+  const weekRange = getWeekRange(new Date());
+  const prevWeekRange = getPrevWeekRange();
+  const currentWeekRegistros = filterByWeekRange(registros, weekRange);
+  const prevWeekRegistros = filterByWeekRange(registros, prevWeekRange);
+  const prevWinners = getWinnersForWeek(prevWeekRegistros);
 
   const submitForm = async (fase) => {
     setSaving(true);
@@ -188,27 +364,46 @@ export default function App() {
     catch (e) { setError(e.message); }
   };
 
-  const metrics = calcMetrics(registros);
-  const totalPersonas = registros.reduce((a, r) => a + (r.grupoSize || 1), 0);
-  const totalIngresaron = registros.filter(r => r.ingreso).reduce((a, r) => a + (r.grupoSize || 1), 0);
-  const totalVendidos = registros.filter(r => r.vendido).reduce((a, r) => a + (r.grupoSize || 1), 0);
-  const totalMonto = registros.reduce((a, r) => a + (r.monto || 0), 0);
-  const enOficina = registros.filter(r => r.ingreso && r.vendido === null);
+  // Métricas SOLO semana actual
+  const metrics = calcMetrics(currentWeekRegistros);
+  const totalPersonas = currentWeekRegistros.reduce((a, r) => a + (r.grupoSize || 1), 0);
+  const totalIngresaron = currentWeekRegistros.filter(r => r.ingreso).reduce((a, r) => a + (r.grupoSize || 1), 0);
+  const totalVendidos = currentWeekRegistros.filter(r => r.vendido).reduce((a, r) => a + (r.grupoSize || 1), 0);
+  const totalMonto = currentWeekRegistros.reduce((a, r) => a + (r.monto || 0), 0);
+  const enOficina = currentWeekRegistros.filter(r => r.ingreso && r.vendido === null);
   const convRate = totalPersonas > 0 ? ((totalVendidos / totalPersonas) * 100).toFixed(1) : 0;
   const avgTicket = totalVendidos > 0 ? (totalMonto / totalVendidos).toFixed(0) : 0;
-  const weekRange = getWeekRange(new Date());
 
   const promotorBarData = Object.entries(metrics.byPromotor).map(([n, d]) => ({ name: n, Contactos: d.personas, Ingresos: d.ingresaron, Vendidos: d.vendidos }));
   const sucursalPieData = Object.entries(metrics.bySucursal).map(([n, d]) => ({ name: n, value: d.ventas, monto: d.monto }));
-  const interesesData = INTERESES.map(i => ({ name: i, value: registros.filter(r => (r.intereses || []).includes(i)).length })).filter(x => x.value > 0);
+  const interesesData = INTERESES.map(i => ({ name: i, value: currentWeekRegistros.filter(r => (r.intereses || []).includes(i)).length })).filter(x => x.value > 0);
 
   const nivelPromotor = (p) => {
     const d = metrics.byPromotor[p] || {};
-    const pts = (d.contactos || 0) * 2 + (d.ingresaron || 0) * 3 + (d.vendidos || 0) * 5;
-    if (pts >= 300) return { nivel: "🥇 Oro", color: "#f59e0b" };
-    if (pts >= 150) return { nivel: "🥈 Plata", color: "#94a3b8" };
+    const pts = calcPuntos(d);
+    if (pts >= 50) return { nivel: "🥇 Oro", color: "#f59e0b" };
+    if (pts >= 25) return { nivel: "🥈 Plata", color: "#94a3b8" };
     return { nivel: "🥉 Bronce", color: "#cd7f32" };
   };
+
+  // Historial: agrupar por semana excluyendo semana actual
+  const byWeek = groupByWeek(registros);
+  const currentWeekKey = weekRange.sat.getTime();
+  const historialWeeks = Object.entries(byWeek)
+    .filter(([key]) => Number(key) !== currentWeekKey)
+    .sort((a, b) => Number(b[0]) - Number(a[0]));
+
+  // Consistencia acumulada: contar semanas donde cada persona fue top
+  function calcConsistencia() {
+    const promotorWins = {}, vendedorWins = {};
+    historialWeeks.forEach(([, regs]) => {
+      const { promotorWinner, vendedorWinner } = getWinnersForWeek(regs);
+      if (promotorWinner) promotorWins[promotorWinner[0]] = (promotorWins[promotorWinner[0]] || 0) + 1;
+      if (vendedorWinner) vendedorWins[vendedorWinner[0]] = (vendedorWins[vendedorWinner[0]] || 0) + 1;
+    });
+    return { promotorWins, vendedorWins };
+  }
+  const consistencia = calcConsistencia();
 
   const s = FORM_STEPS[step];
   const card = { background: "white", borderRadius: 20, padding: "28px 24px", boxShadow: "0 4px 24px rgba(0,0,0,0.08)", maxWidth: 480, width: "100%" };
@@ -251,7 +446,7 @@ export default function App() {
           <span style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, letterSpacing: 2 }}>CRM</span>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          {[["form", "📋 Registrar"], ["dashboard", "📊 Dashboard"], ["lista", "👥 Registros"], ["reglas", "🏆 Premios"]].map(([v, l]) => (
+          {[["form", "📋 Registrar"], ["dashboard", "📊 Dashboard"], ["lista", "👥 Registros"], ["reglas", "🏆 Premios"], ["historial", "📈 Historial"]].map(([v, l]) => (
             <button key={v} onClick={() => { setView(v); if (v === "form") setStep(0); }}
               style={{ padding: "7px 14px", borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: view === v ? F_ORANGE : "#f1f5f9", color: view === v ? F_WHITE : F_BLUE, transition: "all 0.2s" }}>{l}</button>
           ))}
@@ -266,6 +461,51 @@ export default function App() {
             <div style={{ fontSize: 48 }}>🏆</div>
             <h1 style={{ fontSize: 24, fontWeight: 800, color: "#1e293b", margin: "8px 0 4px" }}>¿Cómo funciona el concurso?</h1>
           </div>
+
+          {/* ── GANADORES SEMANA ANTERIOR ── */}
+          {prevWeekRegistros.length > 0 && (
+            <div style={{ background: "linear-gradient(135deg,#1e293b,#334155)", borderRadius: 20, padding: 20, marginBottom: 20, color: "white" }}>
+              <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 700, opacity: 0.7, letterSpacing: 1 }}>🏅 GANADORES SEMANA ANTERIOR</p>
+              <p style={{ margin: "0 0 14px", fontSize: 12, opacity: 0.6 }}>{fmtDate(prevWeekRange.sat)} → {fmtDate(prevWeekRange.fri)}</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={{ background: "linear-gradient(135deg,rgba(245,158,11,0.3),rgba(249,115,22,0.3))", borderRadius: 14, padding: "16px", border: "1px solid rgba(245,158,11,0.4)" }}>
+                  <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, opacity: 0.8 }}>🏃 MEJOR PROMOTOR</p>
+                  {prevWinners.promotorWinner ? (
+                    <>
+                      <p style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800 }}>{prevWinners.promotorWinner[0]}</p>
+                      <p style={{ margin: "0 0 2px", fontSize: 12, opacity: 0.9 }}>
+                        {calcPuntos(prevWinners.promotorWinner[1])} puntos
+                      </p>
+                      <p style={{ margin: "0 0 8px", fontSize: 11, opacity: 0.7 }}>
+                        {prevWinners.promotorWinner[1].personas} contactos · {prevWinners.promotorWinner[1].ingresaron} ingresos · {prevWinners.promotorWinner[1].vendidos} ventas
+                      </p>
+                      <div style={{ background: "rgba(245,158,11,0.4)", borderRadius: 8, padding: "8px 12px", display: "inline-block" }}>
+                        <p style={{ margin: 0, fontWeight: 800, fontSize: 13 }}>💵 Premio: $20 USD</p>
+                      </div>
+                    </>
+                  ) : <p style={{ margin: 0, fontSize: 13, opacity: 0.7 }}>Sin datos</p>}
+                </div>
+                <div style={{ background: "linear-gradient(135deg,rgba(34,197,94,0.3),rgba(22,163,74,0.3))", borderRadius: 14, padding: "16px", border: "1px solid rgba(34,197,94,0.4)" }}>
+                  <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, opacity: 0.8 }}>💼 MEJOR VENDEDOR</p>
+                  {prevWinners.vendedorWinner ? (
+                    <>
+                      <p style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800 }}>{prevWinners.vendedorWinner[0]}</p>
+                      <p style={{ margin: "0 0 2px", fontSize: 12, opacity: 0.9 }}>
+                        {prevWinners.vendedorWinner[1].ventas} ventas
+                      </p>
+                      <p style={{ margin: "0 0 8px", fontSize: 11, opacity: 0.7 }}>
+                        {fmtARS(prevWinners.vendedorWinner[1].monto)} facturado
+                      </p>
+                      <div style={{ background: "rgba(34,197,94,0.4)", borderRadius: 8, padding: "8px 12px", display: "inline-block" }}>
+                        <p style={{ margin: 0, fontWeight: 800, fontSize: 13 }}>💵 Premio: $20 USD</p>
+                      </div>
+                    </>
+                  ) : <p style={{ margin: 0, fontSize: 13, opacity: 0.7 }}>Sin ventas</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", borderRadius: 18, padding: 20, marginBottom: 14, color: "white" }}>
             <p style={{ margin: "0 0 6px", fontSize: 13, fontWeight: 700, opacity: 0.8 }}>📅 CUÁNDO</p>
             <p style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 800 }}>La semana arranca cada sábado</p>
@@ -293,33 +533,80 @@ export default function App() {
                 <span style={{ background: "#ede9fe", color: "#6366f1", padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>{pts}</span>
               </div>
             ))}
-          </div><div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14 }}>
-  <p style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#22c55e" }}>💼 Si sos vendedor, ganás por...</p>
-  {[["💵","Cerrar una venta","cuenta como 1 venta"],["👥","Cantidad de clientes vendidos","más personas = más peso"],["📈","Mayor monto total vendido","el monto define el ranking"]].map(([ico,accion,det]) => (
-    <div key={accion} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
-      <span style={{ fontSize: 22, width: 32, textAlign: "center" }}>{ico}</span>
-      <div style={{ flex: 1 }}><p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{accion}</p><p style={{ margin: 0, fontSize: 11, color: "#94a3b8" }}>{det}</p></div>
-    </div>
-  ))}
-  <p style={{ margin: "12px 0 0", fontSize: 12, color: "#94a3b8" }}>El vendedor con mayor monto al viernes gana la semana 🥇</p>
-</div>
-<div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14, borderLeft: "4px solid #FF5320" }}>
-  <p style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 800, color: "#17244E" }}>✏️ ¿Puedo editar un registro?</p>
-  <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>Sí, pero solo durante las <b>primeras 2 horas</b> desde que lo cargaste. Después queda bloqueado para mantener la integridad de los datos.</p>
-</div>
-<div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14 }}>
-  <p style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#17244E" }}>🎖️ Niveles (promotores)</p>
-  {[["🥇 Oro","300+ puntos","#f59e0b"],["🥈 Plata","150–299 puntos","#94a3b8"],["🥉 Bronce","0–149 puntos","#cd7f32"]].map(([n,pts,c]) => (
-    <div key={n} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 12px", borderRadius: 10, background: c+"18", marginBottom: 8 }}>
-      <span style={{ fontSize: 20 }}>{n.split(" ")[0]}</span>
-      <div style={{ flex: 1 }}><p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: c }}>{n}</p></div>
-      <span style={{ fontSize: 12, color: c, fontWeight: 700 }}>{pts}</span>
-    </div>
-  ))}
-</div>
+          </div>
           <button onClick={() => { setView("form"); setStep(0); }} style={{ width: "100%", padding: "16px", borderRadius: 16, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white", border: "none", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 20 }}>
             ¡Empezar a registrar! 🚀
           </button>
+        </div>
+      )}
+
+      {/* HISTORIAL */}
+      {view === "historial" && (
+        <div style={{ maxWidth: 700, margin: "0 auto", padding: 20 }}>
+          <div style={{ margin: "16px 0 20px" }}>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: "#1e293b", margin: "0 0 4px" }}>📈 Estado de Resultados</h2>
+            <p style={{ color: "#64748b", fontSize: 12, margin: 0 }}>Historial semanal · {registros.length} registros totales</p>
+          </div>
+
+          {/* Bonus de consistencia */}
+          {historialWeeks.length > 0 && (
+            <div style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", borderRadius: 18, padding: 20, marginBottom: 20, color: "white" }}>
+              <p style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 800 }}>⭐ Bonus de Consistencia</p>
+              <p style={{ margin: "0 0 14px", fontSize: 11, opacity: 0.8 }}>Semanas ganadas en el historial</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, opacity: 0.8 }}>🏃 PROMOTORES</p>
+                  {Object.keys(consistencia.promotorWins).length === 0
+                    ? <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>Sin datos</p>
+                    : Object.entries(consistencia.promotorWins).sort((a, b) => b[1] - a[1]).map(([name, wins]) => (
+                      <div key={name} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700 }}>{name}</span>
+                        <span style={{ background: "rgba(255,255,255,0.25)", borderRadius: 6, padding: "2px 10px", fontSize: 12, fontWeight: 800 }}>{wins} 🏆</span>
+                      </div>
+                    ))
+                  }
+                </div>
+                <div>
+                  <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, opacity: 0.8 }}>💼 VENDEDORES</p>
+                  {Object.keys(consistencia.vendedorWins).length === 0
+                    ? <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>Sin datos</p>
+                    : Object.entries(consistencia.vendedorWins).sort((a, b) => b[1] - a[1]).map(([name, wins]) => (
+                      <div key={name} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700 }}>{name}</span>
+                        <span style={{ background: "rgba(255,255,255,0.25)", borderRadius: 6, padding: "2px 10px", fontSize: 12, fontWeight: 800 }}>{wins} 🏆</span>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Semanas */}
+          {historialWeeks.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>
+              <div style={{ fontSize: 40 }}>📋</div>
+              <p style={{ fontWeight: 600, marginTop: 10 }}>No hay semanas anteriores todavía</p>
+              <p style={{ fontSize: 12 }}>Los datos de semanas pasadas aparecerán aquí</p>
+            </div>
+          ) : (
+            historialWeeks.map(([key, regs], idx) => {
+              const wSat = new Date(Number(key));
+              const { fri: wFri } = getWeekRange(wSat);
+              const isOpen = openWeeks[key] || false;
+              return (
+                <WeekCard
+                  key={key}
+                  weekSat={wSat}
+                  weekFri={wFri}
+                  registros={regs}
+                  isOpen={isOpen}
+                  weekNum={historialWeeks.length - idx}
+                  onToggle={() => setOpenWeeks(prev => ({ ...prev, [key]: !prev[key] }))}
+                />
+              );
+            })
+          )}
         </div>
       )}
 
@@ -430,11 +717,11 @@ export default function App() {
               <h2 style={{ fontSize: 20, fontWeight: 800, color: "#1e293b", margin: "0 0 3px" }}>Dashboard 📊</h2>
               <p style={{ color: "#64748b", fontSize: 12 }}>{getTodayStr()}</p>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#ede9fe", borderRadius: 8, padding: "4px 10px", marginTop: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#6366f1" }}>🏆 Semana: {fmtDate(weekRange.sat)} → {fmtDate(weekRange.fri)}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#6366f1" }}>🏆 Semana actual: {fmtDate(weekRange.sat)} → {fmtDate(weekRange.fri)}</span>
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button onClick={() => exportCSV(registros)} style={{ padding: "7px 16px", borderRadius: 10, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "white" }}>⬇️ Exportar CSV</button>
+              <button onClick={() => exportCSV(currentWeekRegistros)} style={{ padding: "7px 16px", borderRadius: 10, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "white" }}>⬇️ Exportar CSV</button>
               {[["operativo", "⚡ Operativo"], ["analitico", "📈 Analítico"]].map(([t, l]) => (
                 <button key={t} onClick={() => setDashTab(t)} style={{ padding: "7px 16px", borderRadius: 10, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: dashTab === t ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "#f1f5f9", color: dashTab === t ? "white" : "#64748b" }}>{l}</button>
               ))}
@@ -452,18 +739,18 @@ export default function App() {
           {dashTab === "operativo" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 14 }}>
               <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
-                <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700 }}>🎯 Embudo semanal</h3>
+                <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700 }}>🎯 Embudo</h3>
                 <div style={{ display: "flex", justifyContent: "space-around" }}>
-                  <MiniPie value={totalPersonas} max={300} color="#6366f1" label="Contactos" sub="meta 300" />
-                  <MiniPie value={totalIngresaron} max={180} color="#0ea5e9" label="Ingresos" sub="meta 180" />
-                  <MiniPie value={totalVendidos} max={120} color="#22c55e" label="Ventas" sub="meta 120" />
+                  <MiniPie value={totalPersonas} max={50} color="#6366f1" label="Contactos" sub="meta 50" />
+                  <MiniPie value={totalIngresaron} max={20} color="#0ea5e9" label="Ingresos" sub="meta 20" />
+                  <MiniPie value={totalVendidos} max={10} color="#22c55e" label="Ventas" sub="meta 10" />
                   <MiniPie value={parseFloat(convRate)} max={100} color="#f59e0b" label="Conv." sub="%" />
                 </div>
               </div>
               <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
                 <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700 }}>🏆 Promotores</h3>
-                {Object.keys(metrics.byPromotor).length === 0 && <p style={{ color: "#94a3b8", fontSize: 12 }}>Sin datos</p>}
-                {Object.entries(metrics.byPromotor).sort((a, b) => b[1].personas - a[1].personas).map(([n, d], i) => {
+                {Object.keys(metrics.byPromotor).length === 0 && <p style={{ color: "#94a3b8", fontSize: 12 }}>Sin datos esta semana</p>}
+                {Object.entries(metrics.byPromotor).sort((a, b) => calcPuntos(b[1]) - calcPuntos(a[1])).map(([n, d], i) => {
                   const nv = nivelPromotor(n);
                   return (
                     <div key={n} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "8px 10px", borderRadius: 10, background: "#f8fafc" }}>
@@ -479,7 +766,7 @@ export default function App() {
               </div>
               <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
                 <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700 }}>💼 Vendedores</h3>
-                {Object.keys(metrics.byVendedor).length === 0 && <p style={{ color: "#94a3b8", fontSize: 12 }}>Sin ventas</p>}
+                {Object.keys(metrics.byVendedor).length === 0 && <p style={{ color: "#94a3b8", fontSize: 12 }}>Sin ventas esta semana</p>}
                 {Object.entries(metrics.byVendedor).sort((a, b) => b[1].monto - a[1].monto).map(([n, d], i) => (
                   <div key={n} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "8px 10px", borderRadius: 10, background: "#f8fafc" }}>
                     <span style={{ fontSize: 14, fontWeight: 800, color: "#94a3b8", width: 18 }}>{i + 1}</span>
@@ -534,9 +821,9 @@ export default function App() {
                 )}
               </div>
               <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
-                <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700 }}>Estadísticas generales</h3>
+                <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700 }}>Estadísticas semana actual</h3>
                 <table style={{ width: "100%", fontSize: 12 }}><tbody>
-                  {[["Registros totales", registros.length], ["Personas contactadas", totalPersonas], ["Ingresaron", totalIngresaron], ["Vendidos", totalVendidos], ["Con WhatsApp", registros.filter(r => r.whatsapp).length], ["Tasa contacto→ingreso", totalPersonas > 0 ? ((totalIngresaron / totalPersonas) * 100).toFixed(1) + "%" : "—"], ["Tasa ingreso→venta", totalIngresaron > 0 ? ((totalVendidos / totalIngresaron) * 100).toFixed(1) + "%" : "—"], ["Facturado total", fmtARS(totalMonto)], ["Ticket promedio", fmtARS(avgTicket)]].map(([k, v]) => (
+                  {[["Registros semana", currentWeekRegistros.length], ["Personas contactadas", totalPersonas], ["Ingresaron", totalIngresaron], ["Vendidos", totalVendidos], ["Con WhatsApp", currentWeekRegistros.filter(r => r.whatsapp).length], ["Tasa contacto→ingreso", totalPersonas > 0 ? ((totalIngresaron / totalPersonas) * 100).toFixed(1) + "%" : "—"], ["Tasa ingreso→venta", totalIngresaron > 0 ? ((totalVendidos / totalIngresaron) * 100).toFixed(1) + "%" : "—"], ["Facturado semana", fmtARS(totalMonto)], ["Ticket promedio", fmtARS(avgTicket)]].map(([k, v]) => (
                     <tr key={k} style={{ borderBottom: "1px solid #f1f5f9" }}>
                       <td style={{ padding: "7px 0", color: "#64748b" }}>{k}</td>
                       <td style={{ padding: "7px 0", fontWeight: 700, color: "#1e293b", textAlign: "right" }}>{v}</td>
@@ -555,7 +842,7 @@ export default function App() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0", flexWrap: "wrap", gap: 10 }}>
             <div>
               <h2 style={{ fontSize: 20, fontWeight: 800, color: "#1e293b", margin: 0 }}>Registros 👥</h2>
-              <p style={{ fontSize: 12, color: "#22c55e", marginTop: 4, fontWeight: 600 }}>✅ {registros.length} registros en la base de datos</p>
+              <p style={{ fontSize: 12, color: "#22c55e", marginTop: 4, fontWeight: 600 }}>✅ {registros.length} registros totales · {currentWeekRegistros.length} esta semana</p>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={cargar} style={{ padding: "9px 16px", borderRadius: 10, border: "1px solid #e2e8f0", background: "white", fontSize: 12, fontWeight: 700, cursor: "pointer", color: "#64748b" }}>🔄 Actualizar</button>
