@@ -109,7 +109,12 @@ function calcMetrics(registros) {
 }
 
 function calcPuntos(d) {
-  return (d.contactos || 0) * 2 + (d.ingresaron || 0) * 3 + (d.vendidos || 0) * 5;
+  // Fórmula v2: premia calidad y facturación, penaliza no-cierre
+  const vendidos   = d.vendidos  || 0;
+  const ingresaron = d.ingresaron || 0;
+  const noVendidos = Math.max(0, ingresaron - vendidos);
+  const bonusFact  = Math.floor((d.monto || 0) / 200000);
+  return (vendidos * 3) - (noVendidos * 1.5) + bonusFact;
 }
 
 function getWinnersForWeek(registros) {
@@ -154,8 +159,8 @@ function WeekCard({ weekSat, weekFri, registros, isOpen, onToggle, weekNum }) {
   const nivelPromotor = (p) => {
     const d = metrics.byPromotor[p] || {};
     const pts = calcPuntos(d);
-    if (pts >= 300) return { nivel: "🥇 Oro", color: "#f59e0b" };
-    if (pts >= 150) return { nivel: "🥈 Plata", color: "#94a3b8" };
+    if (pts >= 60) return { nivel: "🥇 Oro", color: "#f59e0b" };
+    if (pts >= 30) return { nivel: "🥈 Plata", color: "#94a3b8" };
     return { nivel: "🥉 Bronce", color: "#cd7f32" };
   };
 
@@ -402,8 +407,8 @@ export default function App() {
   const nivelPromotor = (p) => {
     const d = metrics.byPromotor[p] || {};
     const pts = calcPuntos(d);
-    if (pts >= 300) return { nivel: "🥇 Oro", color: "#f59e0b" };
-    if (pts >= 150) return { nivel: "🥈 Plata", color: "#94a3b8" };
+    if (pts >= 60) return { nivel: "🥇 Oro", color: "#f59e0b" };
+    if (pts >= 30) return { nivel: "🥈 Plata", color: "#94a3b8" };
     return { nivel: "🥉 Bronce", color: "#cd7f32" };
   };
 
@@ -568,7 +573,7 @@ export default function App() {
           </div>
           <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14 }}>
             <p style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#6366f1" }}>🏃 Promotores — sistema de puntos</p>
-            {[["🗣", "Hablar con alguien", "2 pts por persona"], ["🏢", "Meterlos a la oficina", "3 pts por persona"], ["💰", "Que se venda", "5 pts por persona"], ["🔄", "Retorno que compra", "5 pts extra"]].map(([ico, accion, pts]) => (
+            {[["💰", "Que se venda", "+3 pts por persona"], ["🏢", "Ingresó pero NO se vendió", "-1.5 pts por persona"], ["📈", "Facturación", "+1 pt cada $200K vendidos"], ["🔄", "Retorno que compra", "+3 pts extra"]].map(([ico, accion, pts]) => (
               <div key={accion} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
                 <span style={{ fontSize: 22, width: 32, textAlign: "center" }}>{ico}</span>
                 <div style={{ flex: 1 }}><p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{accion}</p></div>
