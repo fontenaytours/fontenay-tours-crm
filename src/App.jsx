@@ -295,7 +295,7 @@ const FORM_STEPS = ["inicio", "promotor", "sucursal", "vendedor", "pasajero", "g
 export default function App() {
   const [view, setView] = useState("form");
   const [privacyMode, setPrivacyMode] = useState(false);
-  const hideMoney = (val) => privacyMode ? "$ ●●●●●" : (typeof val === "string" ? val : hideMoney(val));
+  const hideMoney = (val) => privacyMode ? "$ ●●●●●" : (typeof val === "string" ? val : fmtARS(val));
   const hideNum = (val) => privacyMode ? "●●●" : val;
   const [step, setStep] = useState(0);
   const [registros, setRegistros] = useState([]);
