@@ -109,7 +109,6 @@ function calcMetrics(registros) {
 }
 
 function calcPuntos(d) {
-  // Fórmula v2: premia calidad y facturación, penaliza no-cierre
   const vendidos   = d.vendidos  || 0;
   const ingresaron = d.ingresaron || 0;
   const noVendidos = Math.max(0, ingresaron - vendidos);
@@ -484,6 +483,32 @@ export default function App() {
       {/* PREMIOS */}
       {view === "reglas" && (
         <div style={{ maxWidth: 600, margin: "0 auto", padding: 20 }}>
+
+          {/* ── AVISO CAMBIO DE REGLAS ── */}
+          <div style={{ background: "linear-gradient(135deg,#fef3c7,#fde68a)", border: "2px solid #f59e0b", borderRadius: 16, padding: 18, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+              <div style={{ fontSize: 28, flexShrink: 0 }}>⚠️</div>
+              <div>
+                <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 800, color: "#92400e" }}>Actualización de reglas — desde esta semana</p>
+                <p style={{ margin: "0 0 10px", fontSize: 13, color: "#78350f", lineHeight: 1.5 }}>
+                  El sistema de puntos fue mejorado para ser más justo: ahora premia la <strong>calidad de los leads</strong> y la <strong>facturación generada</strong>, no solo el volumen de contactos.
+                </p>
+                <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
+                  <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "#92400e" }}>NUEVA FÓRMULA</p>
+                  <p style={{ margin: "0 0 3px", fontSize: 13, color: "#78350f" }}>💰 Persona vendida → <strong>+3 pts</strong></p>
+                  <p style={{ margin: "0 0 3px", fontSize: 13, color: "#78350f" }}>🏢 Ingresó pero no compró → <strong>-1.5 pts</strong></p>
+                  <p style={{ margin: 0, fontSize: 13, color: "#78350f" }}>📈 Cada $200.000 facturados → <strong>+1 pt</strong></p>
+                </div>
+                <div style={{ background: "#fef9c3", borderRadius: 10, padding: "10px 14px", border: "1px solid #fde047" }}>
+                  <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 800, color: "#854d0e" }}>🏆 CORRECCIÓN SEMANA 1</p>
+                  <p style={{ margin: 0, fontSize: 13, color: "#78350f", lineHeight: 1.5 }}>
+                    Con la nueva fórmula, <strong>Alexandra</strong> fue la ganadora real de la Semana 1 por su mejor ratio de cierre y facturación. El premio le será enviado esta semana. ¡Felicitaciones Alexandra! 🎉
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div style={{ textAlign: "center", padding: "28px 0 20px" }}>
             <div style={{ fontSize: 48 }}>🏆</div>
             <h1 style={{ fontSize: 24, fontWeight: 800, color: "#1e293b", margin: "8px 0 4px" }}>¿Cómo funciona el concurso?</h1>
