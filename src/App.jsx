@@ -111,7 +111,12 @@ function calcMetrics(registros) {
 }
 
 function calcPuntos(d) {
-  return (d.contactos || 0) * 2 + (d.ingresaron || 0) * 3 + (d.vendidos || 0) * 5;
+  // Fórmula v2: premia calidad y facturación, penaliza no-cierre
+  const vendidos   = d.vendidos  || 0;
+  const ingresaron = d.ingresaron || 0;
+  const noVendidos = Math.max(0, ingresaron - vendidos);
+  const bonusFact  = Math.floor((d.monto || 0) / 200000);
+  return (vendidos * 3) - (noVendidos * 1.5) + bonusFact;
 }
 
 function getWinnersForWeek(registros) {
@@ -156,8 +161,8 @@ function WeekCard({ weekSat, weekFri, registros, isOpen, onToggle, weekNum, priv
   const nivelPromotor = (p) => {
     const d = metrics.byPromotor[p] || {};
     const pts = calcPuntos(d);
-    if (pts >= 300) return { nivel: "🥇 Oro", color: "#f59e0b" };
-    if (pts >= 150) return { nivel: "🥈 Plata", color: "#94a3b8" };
+    if (pts >= 60) return { nivel: "🥇 Oro", color: "#f59e0b" };
+    if (pts >= 30) return { nivel: "🥈 Plata", color: "#94a3b8" };
     return { nivel: "🥉 Bronce", color: "#cd7f32" };
   };
 
@@ -407,8 +412,8 @@ export default function App() {
   const nivelPromotor = (p) => {
     const d = metrics.byPromotor[p] || {};
     const pts = calcPuntos(d);
-    if (pts >= 300) return { nivel: "🥇 Oro", color: "#f59e0b" };
-    if (pts >= 150) return { nivel: "🥈 Plata", color: "#94a3b8" };
+    if (pts >= 60) return { nivel: "🥇 Oro", color: "#f59e0b" };
+    if (pts >= 30) return { nivel: "🥈 Plata", color: "#94a3b8" };
     return { nivel: "🥉 Bronce", color: "#cd7f32" };
   };
 
@@ -491,6 +496,28 @@ export default function App() {
       {/* PREMIOS */}
       {view === "reglas" && (
         <div style={{ maxWidth: 600, margin: "0 auto", padding: 20 }}>
+
+          {/* ── AVISO CAMBIO DE REGLAS ── */}
+          <div style={{ background: "linear-gradient(135deg,#fef3c7,#fde68a)", border: "2px solid #f59e0b", borderRadius: 16, padding: 18, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+              <div style={{ fontSize: 28, flexShrink: 0 }}>⚠️</div>
+              <div>
+                <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 800, color: "#92400e" }}>Actualización de reglas — desde esta semana</p>
+                <p style={{ margin: "0 0 10px", fontSize: 13, color: "#78350f", lineHeight: 1.5 }}>El sistema de puntos fue mejorado para premiar la <strong>calidad de los leads</strong> y la <strong>facturación generada</strong>.</p>
+                <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
+                  <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "#92400e" }}>NUEVA FÓRMULA</p>
+                  <p style={{ margin: "0 0 3px", fontSize: 13, color: "#78350f" }}>💰 Persona vendida → <strong>+3 pts</strong></p>
+                  <p style={{ margin: "0 0 3px", fontSize: 13, color: "#78350f" }}>🏢 Ingresó pero no compró → <strong>-1.5 pts</strong></p>
+                  <p style={{ margin: 0, fontSize: 13, color: "#78350f" }}>📈 Cada $200.000 facturados → <strong>+1 pt</strong></p>
+                </div>
+                <div style={{ background: "#fef9c3", borderRadius: 10, padding: "10px 14px", border: "1px solid #fde047" }}>
+                  <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 800, color: "#854d0e" }}>🏆 CORRECCIÓN SEMANA 1</p>
+                  <p style={{ margin: 0, fontSize: 13, color: "#78350f", lineHeight: 1.5 }}><strong>Alexandra</strong> fue la ganadora real de la Semana 1. El premio le será enviado. ¡Felicitaciones Alexandra! 🎉</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div style={{ textAlign: "center", padding: "28px 0 20px" }}>
             <div style={{ fontSize: 48 }}>🏆</div>
             <h1 style={{ fontSize: 24, fontWeight: 800, color: "#1e293b", margin: "8px 0 4px" }}>¿Cómo funciona el concurso?</h1>
@@ -580,7 +607,7 @@ export default function App() {
           </div>
           <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14 }}>
             <p style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#6366f1" }}>🏃 Promotores — sistema de puntos</p>
-            {[["🗣", "Hablar con alguien", "2 pts por persona"], ["🏢", "Meterlos a la oficina", "3 pts por persona"], ["💰", "Que se venda", "5 pts por persona"], ["🔄", "Retorno que compra", "5 pts extra"]].map(([ico, accion, pts]) => (
+            {[["💰", "Que se venda", "+3 pts por persona"], ["🏢", "Ingresó pero NO se vendió", "-1.5 pts por persona"], ["📈", "Facturación", "+1 pt cada $200K vendidos"], ["🔄", "Retorno que compra", "+3 pts extra"]].map(([ico, accion, pts]) => (
               <div key={accion} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
                 <span style={{ fontSize: 22, width: 32, textAlign: "center" }}>{ico}</span>
                 <div style={{ flex: 1 }}><p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{accion}</p></div>
