@@ -109,11 +109,7 @@ function calcMetrics(registros) {
 }
 
 function calcPuntos(d) {
-  const vendidos   = d.vendidos  || 0;
-  const ingresaron = d.ingresaron || 0;
-  const noVendidos = Math.max(0, ingresaron - vendidos);
-  const bonusFact  = Math.floor((d.monto || 0) / 200000);
-  return (vendidos * 3) - (noVendidos * 1.5) + bonusFact;
+  return (d.contactos || 0) * 2 + (d.ingresaron || 0) * 3 + (d.vendidos || 0) * 5;
 }
 
 function getWinnersForWeek(registros) {
@@ -158,8 +154,8 @@ function WeekCard({ weekSat, weekFri, registros, isOpen, onToggle, weekNum }) {
   const nivelPromotor = (p) => {
     const d = metrics.byPromotor[p] || {};
     const pts = calcPuntos(d);
-    if (pts >= 60) return { nivel: "🥇 Oro", color: "#f59e0b" };
-    if (pts >= 30) return { nivel: "🥈 Plata", color: "#94a3b8" };
+    if (pts >= 300) return { nivel: "🥇 Oro", color: "#f59e0b" };
+    if (pts >= 150) return { nivel: "🥈 Plata", color: "#94a3b8" };
     return { nivel: "🥉 Bronce", color: "#cd7f32" };
   };
 
@@ -171,7 +167,7 @@ function WeekCard({ weekSat, weekFri, registros, isOpen, onToggle, weekNum }) {
             {weekNum ? `Semana ${weekNum}: ` : ""}{fmtDate(weekSat)} → {fmtDate(weekFri)}
           </p>
           <p style={{ margin: "2px 0 0", fontSize: 11, color: "#64748b" }}>
-            {registros.length} registros · {totalPersonas} personas · {fmtARS(totalMonto)}
+            {registros.length} registros · {totalPersonas} personas · {hideMoney(totalMonto)}
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -210,7 +206,7 @@ function WeekCard({ weekSat, weekFri, registros, isOpen, onToggle, weekNum }) {
                 <>
                   <p style={{ margin: "0 0 2px", fontSize: 16, fontWeight: 800 }}>{vendedorWinner[0]}</p>
                   <p style={{ margin: 0, fontSize: 11, opacity: 0.9 }}>
-                    {vendedorWinner[1].ventas} ventas · {fmtARS(vendedorWinner[1].monto)}
+                    {vendedorWinner[1].ventas} ventas · {hideMoney(vendedorWinner[1].monto)}
                   </p>
                 </>
               ) : <p style={{ margin: 0, fontSize: 13, opacity: 0.8 }}>Sin ventas</p>}
@@ -261,7 +257,7 @@ function WeekCard({ weekSat, weekFri, registros, isOpen, onToggle, weekNum }) {
                     <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{n}</p>
                     <p style={{ margin: 0, fontSize: 11, color: "#64748b" }}>{d.ventas} ventas · {d.clientes} clientes</p>
                   </div>
-                  <span style={{ fontWeight: 700, fontSize: 13, color: "#22c55e" }}>{fmtARS(d.monto)}</span>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: "#22c55e" }}>{hideMoney(d.monto)}</span>
                   {i === 0 && <span style={{ fontSize: 14 }}>🥇</span>}
                 </div>
               ))}
@@ -298,6 +294,9 @@ const FORM_STEPS = ["inicio", "promotor", "sucursal", "vendedor", "pasajero", "g
 
 export default function App() {
   const [view, setView] = useState("form");
+  const [privacyMode, setPrivacyMode] = useState(false);
+  const hideMoney = (val) => privacyMode ? "$ ●●●●●" : (typeof val === "string" ? val : hideMoney(val));
+  const hideNum = (val) => privacyMode ? "●●●" : val;
   const [step, setStep] = useState(0);
   const [registros, setRegistros] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -406,8 +405,8 @@ export default function App() {
   const nivelPromotor = (p) => {
     const d = metrics.byPromotor[p] || {};
     const pts = calcPuntos(d);
-    if (pts >= 60) return { nivel: "🥇 Oro", color: "#f59e0b" };
-    if (pts >= 30) return { nivel: "🥈 Plata", color: "#94a3b8" };
+    if (pts >= 300) return { nivel: "🥇 Oro", color: "#f59e0b" };
+    if (pts >= 150) return { nivel: "🥈 Plata", color: "#94a3b8" };
     return { nivel: "🥉 Bronce", color: "#cd7f32" };
   };
 
@@ -476,6 +475,13 @@ export default function App() {
             <button key={v} onClick={() => { setView(v); if (v === "form") setStep(0); }}
               style={{ padding: "7px 14px", borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: view === v ? F_ORANGE : "#f1f5f9", color: view === v ? F_WHITE : F_BLUE, transition: "all 0.2s" }}>{l}</button>
           ))}
+          <button onClick={() => setPrivacyMode(p => !p)}
+            title={privacyMode ? "Mostrar números" : "Ocultar números (modo privacidad)"}
+            style={{ padding: "7px 12px", borderRadius: 8, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
+              background: privacyMode ? "#fef3c7" : "#f1f5f9", color: privacyMode ? "#92400e" : "#64748b",
+              transition: "all 0.2s", flexShrink: 0 }}>
+            {privacyMode ? "🙈" : "👁"}
+          </button>
           {enOficina.length > 0 && <div style={{ background: "#fef3c7", color: "#92400e", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700 }}>⏳ {enOficina.length} en oficina</div>}
         </div>
       </div>
@@ -483,32 +489,6 @@ export default function App() {
       {/* PREMIOS */}
       {view === "reglas" && (
         <div style={{ maxWidth: 600, margin: "0 auto", padding: 20 }}>
-
-          {/* ── AVISO CAMBIO DE REGLAS ── */}
-          <div style={{ background: "linear-gradient(135deg,#fef3c7,#fde68a)", border: "2px solid #f59e0b", borderRadius: 16, padding: 18, marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-              <div style={{ fontSize: 28, flexShrink: 0 }}>⚠️</div>
-              <div>
-                <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 800, color: "#92400e" }}>Actualización de reglas — desde esta semana</p>
-                <p style={{ margin: "0 0 10px", fontSize: 13, color: "#78350f", lineHeight: 1.5 }}>
-                  El sistema de puntos fue mejorado para ser más justo: ahora premia la <strong>calidad de los leads</strong> y la <strong>facturación generada</strong>, no solo el volumen de contactos.
-                </p>
-                <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
-                  <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "#92400e" }}>NUEVA FÓRMULA</p>
-                  <p style={{ margin: "0 0 3px", fontSize: 13, color: "#78350f" }}>💰 Persona vendida → <strong>+3 pts</strong></p>
-                  <p style={{ margin: "0 0 3px", fontSize: 13, color: "#78350f" }}>🏢 Ingresó pero no compró → <strong>-1.5 pts</strong></p>
-                  <p style={{ margin: 0, fontSize: 13, color: "#78350f" }}>📈 Cada $200.000 facturados → <strong>+1 pt</strong></p>
-                </div>
-                <div style={{ background: "#fef9c3", borderRadius: 10, padding: "10px 14px", border: "1px solid #fde047" }}>
-                  <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 800, color: "#854d0e" }}>🏆 CORRECCIÓN SEMANA 1</p>
-                  <p style={{ margin: 0, fontSize: 13, color: "#78350f", lineHeight: 1.5 }}>
-                    Con la nueva fórmula, <strong>Alexandra</strong> fue la ganadora real de la Semana 1 por su mejor ratio de cierre y facturación. El premio le será enviado esta semana. ¡Felicitaciones Alexandra! 🎉
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div style={{ textAlign: "center", padding: "28px 0 20px" }}>
             <div style={{ fontSize: 48 }}>🏆</div>
             <h1 style={{ fontSize: 24, fontWeight: 800, color: "#1e293b", margin: "8px 0 4px" }}>¿Cómo funciona el concurso?</h1>
@@ -546,7 +526,7 @@ export default function App() {
                         {prevWinners.vendedorWinner[1].ventas} ventas
                       </p>
                       <p style={{ margin: "0 0 8px", fontSize: 11, opacity: 0.7 }}>
-                        {fmtARS(prevWinners.vendedorWinner[1].monto)} facturado
+                        {hideMoney(prevWinners.vendedorWinner[1].monto)} facturado
                       </p>
                       <div style={{ background: "rgba(34,197,94,0.4)", borderRadius: 8, padding: "8px 12px", display: "inline-block" }}>
                         <p style={{ margin: 0, fontWeight: 800, fontSize: 13 }}>💵 Premio: $20 USD</p>
@@ -598,7 +578,7 @@ export default function App() {
           </div>
           <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14 }}>
             <p style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#6366f1" }}>🏃 Promotores — sistema de puntos</p>
-            {[["💰", "Que se venda", "+3 pts por persona"], ["🏢", "Ingresó pero NO se vendió", "-1.5 pts por persona"], ["📈", "Facturación", "+1 pt cada $200K vendidos"], ["🔄", "Retorno que compra", "+3 pts extra"]].map(([ico, accion, pts]) => (
+            {[["🗣", "Hablar con alguien", "2 pts por persona"], ["🏢", "Meterlos a la oficina", "3 pts por persona"], ["💰", "Que se venda", "5 pts por persona"], ["🔄", "Retorno que compra", "5 pts extra"]].map(([ico, accion, pts]) => (
               <div key={accion} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
                 <span style={{ fontSize: 22, width: 32, textAlign: "center" }}>{ico}</span>
                 <div style={{ flex: 1 }}><p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{accion}</p></div>
@@ -788,6 +768,13 @@ export default function App() {
       )}
 
       {/* DASHBOARD */}
+      {privacyMode && (
+        <div style={{ background: "#fef3c7", borderTop: "3px solid #f59e0b", padding: "8px 20px", display: "flex", alignItems: "center", gap: 8, position: "sticky", top: 60, zIndex: 90 }}>
+          <span style={{ fontSize: 16 }}>🙈</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#92400e" }}>Modo privacidad activo — los montos están ocultos</span>
+          <button onClick={() => setPrivacyMode(false)} style={{ marginLeft: "auto", padding: "4px 12px", borderRadius: 8, border: "none", background: "#f59e0b", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Mostrar</button>
+        </div>
+      )}
       {view === "dashboard" && (
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 10, margin: "16px 0 14px" }}>
@@ -806,7 +793,7 @@ export default function App() {
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10, marginBottom: 16 }}>
-            {[["👥 Contactados", totalPersonas, "personas", "#6366f1"], ["🏢 Ingresaron", totalIngresaron, "a oficina", "#0ea5e9"], ["💰 Vendidos", totalVendidos, "clientes", "#22c55e"], ["💵 Facturado", fmtARS(totalMonto), "", "#f59e0b"], ["🎯 Conversión", convRate + "%", "total", "#8b5cf6"], ["🎫 Ticket", fmtARS(avgTicket), "promedio", "#14b8a6"], ["⏳ En oficina", enOficina.length, "sin cierre", "#ef4444"]].map(([l, v, sub, c]) => (
+            {[["👥 Contactados", totalPersonas, "personas", "#6366f1"], ["🏢 Ingresaron", totalIngresaron, "a oficina", "#0ea5e9"], ["💰 Vendidos", totalVendidos, "clientes", "#22c55e"], ["💵 Facturado", hideMoney(totalMonto), "", "#f59e0b"], ["🎯 Conversión", convRate + "%", "total", "#8b5cf6"], ["🎫 Ticket", hideMoney(avgTicket), "promedio", "#14b8a6"], ["⏳ En oficina", enOficina.length, "sin cierre", "#ef4444"]].map(([l, v, sub, c]) => (
               <div key={l} style={{ background: "white", borderRadius: 14, padding: "12px", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", borderTop: "3px solid " + c }}>
                 <p style={{ margin: 0, fontSize: 10, color: "#94a3b8", fontWeight: 600 }}>{l}</p>
                 <p style={{ margin: "3px 0 1px", fontSize: 18, fontWeight: 800, color: "#1e293b", lineHeight: 1.2 }}>{v}</p>
@@ -850,7 +837,7 @@ export default function App() {
                     <span style={{ fontSize: 14, fontWeight: 800, color: "#94a3b8", width: 18 }}>{i + 1}</span>
                     <div style={{ flex: 1 }}>
                       <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{n}</p>
-                      <p style={{ margin: 0, fontSize: 11, color: "#64748b" }}>{d.ventas} ventas · {fmtARS(d.monto)}</p>
+                      <p style={{ margin: 0, fontSize: 11, color: "#64748b" }}>{d.ventas} ventas · {hideMoney(d.monto)}</p>
                     </div>
                     {i === 0 && <span style={{ background: "#f59e0b22", color: "#f59e0b", padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700 }}>🥇 Líder</span>}
                   </div>
@@ -864,7 +851,7 @@ export default function App() {
                       <Pie data={sucursalPieData} cx="40%" cy="50%" outerRadius={65} dataKey="value" label={({ percent }) => Math.round(percent * 100) + "%"} labelLine={false} fontSize={11}>
                         {sucursalPieData.map((e, i) => <Cell key={i} fill={SUC_COLORS[e.name] || COLORS[i]} />)}
                       </Pie>
-                      <Tooltip formatter={(v, n, p) => [v + " ventas · " + fmtARS(p.payload.monto), p.payload.name]} />
+                      <Tooltip formatter={(v, n, p) => [v + " ventas · " + hideMoney(p.payload.monto), p.payload.name]} />
                       <Legend iconSize={10} layout="vertical" align="right" verticalAlign="middle" wrapperStyle={{ fontSize: 11 }} />
                     </PieChart>
                   </ResponsiveContainer>
@@ -901,7 +888,7 @@ export default function App() {
               <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
                 <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700 }}>Estadísticas semana actual</h3>
                 <table style={{ width: "100%", fontSize: 12 }}><tbody>
-                  {[["Registros semana", currentWeekRegistros.length], ["Personas contactadas", totalPersonas], ["Ingresaron", totalIngresaron], ["Vendidos", totalVendidos], ["Con WhatsApp", currentWeekRegistros.filter(r => r.whatsapp).length], ["Tasa contacto→ingreso", totalPersonas > 0 ? ((totalIngresaron / totalPersonas) * 100).toFixed(1) + "%" : "—"], ["Tasa ingreso→venta", totalIngresaron > 0 ? ((totalVendidos / totalIngresaron) * 100).toFixed(1) + "%" : "—"], ["Facturado semana", fmtARS(totalMonto)], ["Ticket promedio", fmtARS(avgTicket)]].map(([k, v]) => (
+                  {[["Registros semana", currentWeekRegistros.length], ["Personas contactadas", totalPersonas], ["Ingresaron", totalIngresaron], ["Vendidos", totalVendidos], ["Con WhatsApp", currentWeekRegistros.filter(r => r.whatsapp).length], ["Tasa contacto→ingreso", totalPersonas > 0 ? ((totalIngresaron / totalPersonas) * 100).toFixed(1) + "%" : "—"], ["Tasa ingreso→venta", totalIngresaron > 0 ? ((totalVendidos / totalIngresaron) * 100).toFixed(1) + "%" : "—"], ["Facturado semana", hideMoney(totalMonto)], ["Ticket promedio", hideMoney(avgTicket)]].map(([k, v]) => (
                     <tr key={k} style={{ borderBottom: "1px solid #f1f5f9" }}>
                       <td style={{ padding: "7px 0", color: "#64748b" }}>{k}</td>
                       <td style={{ padding: "7px 0", fontWeight: 700, color: "#1e293b", textAlign: "right" }}>{v}</td>
@@ -952,7 +939,7 @@ export default function App() {
                         {editable && <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 600 }}>✏️ editable {mins}min</span>}
                       </div>
                       <p style={{ margin: "0 0 2px", fontSize: 12, color: "#64748b" }}><b>{r.promotor}</b> → <b>{r.vendedor}</b> · {r.grupoSize || 1} persona(s){r.whatsapp && <span style={{ color: "#22c55e" }}> · 📱 {r.whatsapp}</span>}</p>
-                      <p style={{ margin: 0, fontSize: 11, color: "#94a3b8" }}>{(r.intereses || []).join(", ")}{r.monto > 0 && <span style={{ color: "#22c55e", fontWeight: 700 }}> · {fmtARS(r.monto)}</span>}</p>
+                      <p style={{ margin: 0, fontSize: 11, color: "#94a3b8" }}>{(r.intereses || []).join(", ")}{r.monto > 0 && <span style={{ color: "#22c55e", fontWeight: 700 }}> · {hideMoney(r.monto)}</span>}</p>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, alignSelf: "flex-start" }}>
                       {r.ingreso && r.vendido === null && (
