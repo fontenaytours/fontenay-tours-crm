@@ -424,16 +424,28 @@ export default function App() {
     .filter(([key]) => Number(key) !== currentWeekKey)
     .sort((a, b) => Number(b[0]) - Number(a[0]));
 
-  // Consistencia: solo últimas 4 semanas anteriores (bonus mensual)
+  // Consistencia: ciclos de 4 semanas con rollover automático
   function calcConsistencia() {
+    const total = historialWeeks.length;
+    if (total === 0) return { promotorWins: {}, vendedorWins: {}, semanas: 0, cycleCompleted: false, cycleNumber: 1 };
+
+    // Posición dentro del ciclo actual (1-4). Si total % 4 === 0 => ciclo recién terminado (4 semanas completas)
+    const posInCycle = total % 4 === 0 ? 4 : total % 4;
+    const cycleCompleted = total % 4 === 0;
+    const cycleNumber = cycleCompleted
+      ? Math.floor(total / 4)
+      : Math.floor(total / 4) + 1;
+
+    // Semanas del ciclo actual (las más recientes, cantidad = posInCycle)
+    const cycleWeeks = historialWeeks.slice(0, posInCycle);
+
     const promotorWins = {}, vendedorWins = {};
-    const last4 = historialWeeks.slice(0, 4);
-    last4.forEach(([, regs]) => {
+    cycleWeeks.forEach(([, regs]) => {
       const { promotorWinner, vendedorWinner } = getWinnersForWeek(regs);
       if (promotorWinner) promotorWins[promotorWinner[0]] = (promotorWins[promotorWinner[0]] || 0) + 1;
       if (vendedorWinner) vendedorWins[vendedorWinner[0]] = (vendedorWins[vendedorWinner[0]] || 0) + 1;
     });
-    return { promotorWins, vendedorWins, semanas: last4.length };
+    return { promotorWins, vendedorWins, semanas: posInCycle, cycleCompleted, cycleNumber };
   }
   const consistencia = calcConsistencia();
 
@@ -497,26 +509,6 @@ export default function App() {
       {view === "reglas" && (
         <div style={{ maxWidth: 600, margin: "0 auto", padding: 20 }}>
 
-          {/* ── AVISO CAMBIO DE REGLAS ── */}
-          <div style={{ background: "linear-gradient(135deg,#fef3c7,#fde68a)", border: "2px solid #f59e0b", borderRadius: 16, padding: 18, marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-              <div style={{ fontSize: 28, flexShrink: 0 }}>⚠️</div>
-              <div>
-                <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 800, color: "#92400e" }}>Actualización de reglas — desde esta semana</p>
-                <p style={{ margin: "0 0 10px", fontSize: 13, color: "#78350f", lineHeight: 1.5 }}>El sistema de puntos fue mejorado para premiar la <strong>calidad de los leads</strong> y la <strong>facturación generada</strong>.</p>
-                <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
-                  <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "#92400e" }}>NUEVA FÓRMULA</p>
-                  <p style={{ margin: "0 0 3px", fontSize: 13, color: "#78350f" }}>💰 Persona vendida → <strong>+3 pts</strong></p>
-                  <p style={{ margin: "0 0 3px", fontSize: 13, color: "#78350f" }}>🏢 Ingresó pero no compró → <strong>-1.5 pts</strong></p>
-                  <p style={{ margin: 0, fontSize: 13, color: "#78350f" }}>📈 Cada $200.000 facturados → <strong>+1 pt</strong></p>
-                </div>
-                <div style={{ background: "#fef9c3", borderRadius: 10, padding: "10px 14px", border: "1px solid #fde047" }}>
-                  <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 800, color: "#854d0e" }}>🏆 CORRECCIÓN SEMANA 1</p>
-                  <p style={{ margin: 0, fontSize: 13, color: "#78350f", lineHeight: 1.5 }}><strong>Alexandra</strong> fue la ganadora real de la Semana 1. El premio le será enviado. ¡Felicitaciones Alexandra! 🎉</p>
-                </div>
-              </div>
-            </div>
-          </div>
 
           <div style={{ textAlign: "center", padding: "28px 0 20px" }}>
             <div style={{ fontSize: 48 }}>🏆</div>
@@ -632,14 +624,17 @@ export default function App() {
           {/* Bonus de consistencia */}
           {historialWeeks.length > 0 && (
             <div style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", borderRadius: 18, padding: 20, marginBottom: 20, color: "white" }}>
-              <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 800 }}>⭐ Bonus de Consistencia Mensual</p>
+              <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 800 }}>⭐ Bonus de Consistencia — Ciclo {consistencia.cycleNumber}</p>
               <p style={{ margin: "0 0 6px", fontSize: 11, opacity: 0.8 }}>El $20 USD extra se entrega al final de cada ciclo de 4 semanas · al que más veces ganó en ese período</p>
               <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
                 {[1,2,3,4].map(n => (
                   <div key={n} style={{ flex: 1, height: 6, borderRadius: 4, background: n <= consistencia.semanas ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.25)" }} />
                 ))}
               </div>
-              <p style={{ margin: "0 0 14px", fontSize: 11, opacity: 0.7 }}>Semana {consistencia.semanas} de 4 — {4 - consistencia.semanas} semana{4 - consistencia.semanas !== 1 ? "s" : ""} restante{4 - consistencia.semanas !== 1 ? "s" : ""} para cerrar el ciclo</p>
+              {consistencia.cycleCompleted
+                ? <p style={{ margin: "0 0 14px", fontSize: 11, background: "rgba(255,255,255,0.2)", borderRadius: 8, padding: "6px 10px", fontWeight: 700 }}>✅ ¡Ciclo {consistencia.cycleNumber} completado! El bonus ya fue otorgado. El Ciclo {consistencia.cycleNumber + 1} arranca esta semana.</p>
+                : <p style={{ margin: "0 0 14px", fontSize: 11, opacity: 0.7 }}>Semana {consistencia.semanas} de 4 — {4 - consistencia.semanas} semana{4 - consistencia.semanas !== 1 ? "s" : ""} restante{4 - consistencia.semanas !== 1 ? "s" : ""} para cerrar el ciclo</p>
+              }
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, opacity: 0.8 }}>🏃 PROMOTORES</p>
