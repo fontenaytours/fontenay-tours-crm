@@ -1102,7 +1102,7 @@ function Login() {
   };
 
   const inputStyle = {
-    width: "100%", padding: "12px 14px", fontSize: 14, borderRadius: 10,
+    width: "100%", padding: "12px 14px", fontSize: 16, borderRadius: 10,
     border: "1px solid #E5E7EB", background: "#FFFFFF", color: "#17244E",
     fontFamily: "'Inter','Segoe UI',sans-serif", outline: "none",
     transition: "border-color 0.15s, box-shadow 0.15s", boxSizing: "border-box",
