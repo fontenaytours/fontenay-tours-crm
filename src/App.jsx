@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
-import { getRegistros, insertRegistro, updateRegistro, deleteRegistro } from "./supabase";
+import { supabase, getRegistros, insertRegistro, updateRegistro, deleteRegistro } from "./supabase";
 
 const PROMOTORES = ["Martín", "Jimmy", "Alexandra", "Brian", "Marcelo"];
 const VENDEDORES = ["Nury", "Jimmy", "Marcelo", "Brian", "Alexandra", "Sebastián"];
@@ -299,7 +299,7 @@ function WeekCard({ weekSat, weekFri, registros, isOpen, onToggle, weekNum, priv
 
 const FORM_STEPS = ["inicio", "promotor", "sucursal", "vendedor", "pasajero", "grupo", "intereses", "fase"];
 
-export default function App() {
+function AppAuthenticated({ session, onLogout }) {
   const [view, setView] = useState("form");
   const [privacyMode, setPrivacyMode] = useState(false);
   const hideMoney = (val) => privacyMode ? "$ ●●●●●" : (typeof val === "string" ? val : fmtARS(val));
@@ -502,6 +502,18 @@ export default function App() {
             {privacyMode ? "🙈" : "👁"}
           </button>
           {enOficina.length > 0 && <div style={{ background: "#fef3c7", color: "#92400e", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700 }}>⏳ {enOficina.length} en oficina</div>}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 8, marginLeft: 4, borderLeft: "1px solid #e2e8f0" }}>
+            <span title={session?.user?.email} style={{ fontSize: 11, color: "#64748b", fontWeight: 600, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {session?.user?.email}
+            </span>
+            <button onClick={onLogout}
+              title="Cerrar sesión"
+              style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontWeight: 700, fontSize: 12, cursor: "pointer", background: "#fff", color: "#64748b", transition: "all 0.2s", flexShrink: 0 }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#fef2f2"; e.currentTarget.style.color = "#dc2626"; e.currentTarget.style.borderColor = "#fecaca"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#64748b"; e.currentTarget.style.borderColor = "#e2e8f0"; }}>
+              Salir
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1041,4 +1053,247 @@ export default function App() {
       )}
     </div>
   );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOGIN — pantalla de ingreso con design system Fontenay
+// ═══════════════════════════════════════════════════════════════
+function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [mode, setMode] = useState("login"); // "login" | "reset"
+  const [resetSent, setResetSent] = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    if (!email || !password) { setError("Ingresá email y contraseña."); return; }
+    setError(""); setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) throw error;
+      // Si login es OK, onAuthStateChange en AuthGate dispara el re-render
+    } catch (err) {
+      const msg = (err?.message || "").toLowerCase();
+      if (msg.includes("invalid login")) setError("Email o contraseña incorrectos.");
+      else if (msg.includes("email not confirmed")) setError("Tu cuenta aún no está confirmada. Pedile a Sebastián que la active.");
+      else setError("Error al iniciar sesión: " + (err?.message || "desconocido"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    if (!email) { setError("Ingresá tu email para recibir el link de reseteo."); return; }
+    setError(""); setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      setResetSent(true);
+    } catch (err) {
+      setError("No pudimos enviar el email. Verificá la dirección o contactá a Sebastián.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputStyle = {
+    width: "100%", padding: "12px 14px", fontSize: 14, borderRadius: 10,
+    border: "1px solid #E5E7EB", background: "#FFFFFF", color: "#17244E",
+    fontFamily: "'Inter','Segoe UI',sans-serif", outline: "none",
+    transition: "border-color 0.15s, box-shadow 0.15s", boxSizing: "border-box",
+  };
+
+  const labelStyle = {
+    display: "block", fontSize: 11, fontWeight: 700, color: "#6B7280",
+    textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6,
+  };
+
+  return (
+    <div style={{
+      minHeight: "100vh", background: "#F8FAFC",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 20, fontFamily: "'Inter','Segoe UI',sans-serif",
+    }}>
+      <div style={{
+        width: "100%", maxWidth: 400,
+        background: "#FFFFFF", borderRadius: 16, padding: "40px 32px",
+        boxShadow: "0 10px 40px rgba(23,36,78,0.08), 0 2px 8px rgba(23,36,78,0.04)",
+        borderTop: `4px solid ${F_ORANGE}`,
+      }}>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <img
+            src="/logo FONTENAY TOURS OK.png"
+            alt="Fontenay Tours"
+            style={{ height: 48, objectFit: "contain", marginBottom: 12 }}
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+          />
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.2em" }}>
+            CRM · ACCESO INTERNO
+          </div>
+        </div>
+
+        {mode === "login" && (
+          <form onSubmit={handleLogin}>
+            <h1 style={{ fontSize: 20, fontWeight: 800, color: F_BLUE, margin: "0 0 20px", textAlign: "center" }}>
+              Iniciar sesión
+            </h1>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Email</label>
+              <input
+                type="email" autoComplete="email" autoFocus
+                value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@fontenaytours.com"
+                style={inputStyle}
+                onFocus={(e) => e.target.style.borderColor = F_ORANGE}
+                onBlur={(e) => e.target.style.borderColor = "#E5E7EB"}
+              />
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Contraseña</label>
+              <input
+                type="password" autoComplete="current-password"
+                value={password} onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                style={inputStyle}
+                onFocus={(e) => e.target.style.borderColor = F_ORANGE}
+                onBlur={(e) => e.target.style.borderColor = "#E5E7EB"}
+              />
+            </div>
+
+            {error && (
+              <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", borderRadius: 10, padding: "10px 12px", fontSize: 13, marginBottom: 14 }}>
+                {error}
+              </div>
+            )}
+
+            <button type="submit" disabled={loading}
+              style={{ width: "100%", padding: "12px 16px", fontSize: 14, fontWeight: 700, borderRadius: 10, border: "none",
+                background: loading ? "#FCA18A" : F_ORANGE, color: "#FFFFFF", cursor: loading ? "not-allowed" : "pointer",
+                transition: "background 0.15s", fontFamily: "'Inter','Segoe UI',sans-serif" }}>
+              {loading ? "Ingresando…" : "Ingresar"}
+            </button>
+
+            <div style={{ textAlign: "center", marginTop: 16 }}>
+              <button type="button" onClick={() => { setMode("reset"); setError(""); setResetSent(false); }}
+                style={{ background: "none", border: "none", color: "#6B7280", fontSize: 12, cursor: "pointer", fontWeight: 600, textDecoration: "underline" }}>
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
+          </form>
+        )}
+
+        {mode === "reset" && (
+          <form onSubmit={handleReset}>
+            <h1 style={{ fontSize: 20, fontWeight: 800, color: F_BLUE, margin: "0 0 8px", textAlign: "center" }}>
+              Recuperar contraseña
+            </h1>
+            <p style={{ fontSize: 12, color: "#6B7280", textAlign: "center", margin: "0 0 20px", lineHeight: 1.5 }}>
+              Te enviamos un link por email para crear una nueva contraseña.
+            </p>
+
+            {resetSent ? (
+              <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", color: "#166534", borderRadius: 10, padding: "14px", fontSize: 13, textAlign: "center", marginBottom: 16, lineHeight: 1.5 }}>
+                ✅ Te enviamos un email a <b>{email}</b>.<br/>Revisá la bandeja (y spam) y seguí el link.
+              </div>
+            ) : (
+              <>
+                <div style={{ marginBottom: 14 }}>
+                  <label style={labelStyle}>Email</label>
+                  <input
+                    type="email" autoComplete="email" autoFocus
+                    value={email} onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tu@fontenaytours.com"
+                    style={inputStyle}
+                    onFocus={(e) => e.target.style.borderColor = F_ORANGE}
+                    onBlur={(e) => e.target.style.borderColor = "#E5E7EB"}
+                  />
+                </div>
+                {error && (
+                  <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", borderRadius: 10, padding: "10px 12px", fontSize: 13, marginBottom: 14 }}>
+                    {error}
+                  </div>
+                )}
+                <button type="submit" disabled={loading}
+                  style={{ width: "100%", padding: "12px 16px", fontSize: 14, fontWeight: 700, borderRadius: 10, border: "none",
+                    background: loading ? "#FCA18A" : F_ORANGE, color: "#FFFFFF", cursor: loading ? "not-allowed" : "pointer",
+                    fontFamily: "'Inter','Segoe UI',sans-serif" }}>
+                  {loading ? "Enviando…" : "Enviar link de recuperación"}
+                </button>
+              </>
+            )}
+
+            <div style={{ textAlign: "center", marginTop: 16 }}>
+              <button type="button" onClick={() => { setMode("login"); setError(""); setResetSent(false); }}
+                style={{ background: "none", border: "none", color: "#6B7280", fontSize: 12, cursor: "pointer", fontWeight: 600, textDecoration: "underline" }}>
+                ← Volver al login
+              </button>
+            </div>
+          </form>
+        )}
+
+        <div style={{ textAlign: "center", marginTop: 24, fontSize: 10, color: "#9CA3AF", fontWeight: 500 }}>
+          FONTENAY TOURS · Leg. Nº 16.426
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTHGATE — maneja la sesión y decide qué renderizar
+// ═══════════════════════════════════════════════════════════════
+function AuthGate() {
+  const [session, setSession] = useState(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    // Chequear sesión existente al montar
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setChecking(false);
+    });
+
+    // Suscribirse a cambios (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Ignorar TOKEN_REFRESHED para no re-renderizar la app innecesariamente
+      if (event === 'TOKEN_REFRESHED') return;
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    if (!confirm("¿Cerrar sesión?")) return;
+    await supabase.auth.signOut();
+    // onAuthStateChange dispara el re-render automáticamente
+  };
+
+  if (checking) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#F8FAFC", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Inter','Segoe UI',sans-serif" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
+          <p style={{ color: F_BLUE, fontWeight: 700, fontSize: 14 }}>Cargando…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) return <Login />;
+  return <AppAuthenticated session={session} onLogout={handleLogout} />;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT DEFAULT — punto de entrada de la app
+// ═══════════════════════════════════════════════════════════════
+export default function App() {
+  return <AuthGate />;
 }
