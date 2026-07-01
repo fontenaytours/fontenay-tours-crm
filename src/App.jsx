@@ -614,7 +614,7 @@ function AppAuthenticated({ session, onLogout }) {
                         {prevWinners.cantidadWinner[1].ingresaron} personas ingresadas
                       </p>
                       <div style={{ background: "rgba(14,165,233,0.4)", borderRadius: 8, padding: "6px 10px", display: "inline-block" }}>
-                        <p style={{ margin: 0, fontWeight: 800, fontSize: 12 }}>💵 $50 USD · 25%</p>
+                        <p style={{ margin: 0, fontWeight: 800, fontSize: 12 }}>💵 $10 · semanal</p>
                       </div>
                     </>
                   ) : <p style={{ margin: 0, fontSize: 13, opacity: 0.7 }}>Sin datos</p>}
@@ -628,7 +628,7 @@ function AppAuthenticated({ session, onLogout }) {
                         ticket {hideMoney(Math.round(prevWinners.calidadWinner[2]), privacyMode)} · {prevWinners.calidadWinner[1].vendidos} ventas
                       </p>
                       <div style={{ background: "rgba(139,92,246,0.4)", borderRadius: 8, padding: "6px 10px", display: "inline-block" }}>
-                        <p style={{ margin: 0, fontWeight: 800, fontSize: 12 }}>💵 $50 USD · 25%</p>
+                        <p style={{ margin: 0, fontWeight: 800, fontSize: 12 }}>💵 $10 · semanal</p>
                       </div>
                     </>
                   ) : <p style={{ margin: 0, fontSize: 13, opacity: 0.7 }}>Sin calificados (mín. 3 ventas)</p>}
@@ -642,7 +642,7 @@ function AppAuthenticated({ session, onLogout }) {
                         {hideMoney(prevWinners.ventaWinner[1].monto, privacyMode)} · {prevWinners.ventaWinner[1].ventas} ventas
                       </p>
                       <div style={{ background: "rgba(34,197,94,0.4)", borderRadius: 8, padding: "6px 10px", display: "inline-block" }}>
-                        <p style={{ margin: 0, fontWeight: 800, fontSize: 12 }}>💵 $100 USD · 50%</p>
+                        <p style={{ margin: 0, fontWeight: 800, fontSize: 12 }}>💵 $20 · semanal</p>
                       </div>
                     </>
                   ) : <p style={{ margin: 0, fontSize: 13, opacity: 0.7 }}>Sin ventas</p>}
@@ -658,16 +658,23 @@ function AppAuthenticated({ session, onLogout }) {
           </div>
           <div style={{ background: "linear-gradient(135deg,#f59e0b,#f97316)", borderRadius: 18, padding: 20, marginBottom: 14, color: "white" }}>
             <p style={{ margin: "0 0 6px", fontSize: 13, fontWeight: 700, opacity: 0.8 }}>💰 CUÁNTO</p>
-            <p style={{ margin: "0 0 10px", fontSize: 18, fontWeight: 800 }}>$200 USD por mes para repartir</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-              {[["🏃 Cantidad", "25%", "$50 USD"], ["⭐ Calidad", "25%", "$50 USD"], ["💼 Venta", "50%", "$100 USD"]].map(([r, pct, t]) => (
+            <p style={{ margin: "0 0 2px", fontSize: 18, fontWeight: 800 }}>$200 USD por mes</p>
+            <p style={{ margin: "0 0 12px", fontSize: 12, opacity: 0.85 }}>Se paga todos los sábados · $40 por semana + bonus de consistencia</p>
+            <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, opacity: 0.75, letterSpacing: 1 }}>🏆 CADA SEMANA — $40</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+              {[["🏃 Cantidad", "$10", "25%"], ["⭐ Calidad", "$10", "25%"], ["💼 Venta", "$20", "50%"]].map(([r, monto, pct]) => (
                 <div key={r} style={{ background: "rgba(255,255,255,0.2)", borderRadius: 12, padding: "12px" }}>
                   <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 700 }}>{r}</p>
-                  <p style={{ margin: "0 0 2px", fontSize: 20, fontWeight: 800 }}>{pct}</p>
-                  <p style={{ margin: 0, fontSize: 11, opacity: 0.85 }}>{t}</p>
+                  <p style={{ margin: "0 0 2px", fontSize: 20, fontWeight: 800 }}>{monto}</p>
+                  <p style={{ margin: 0, fontSize: 11, opacity: 0.85 }}>{pct}</p>
                 </div>
               ))}
             </div>
+            <div style={{ background: "rgba(0,0,0,0.18)", borderRadius: 12, padding: "12px 14px" }}>
+              <p style={{ margin: "0 0 2px", fontSize: 11, fontWeight: 700, opacity: 0.85, letterSpacing: 1 }}>⭐ BONUS DE CONSISTENCIA — $40</p>
+              <p style={{ margin: 0, fontSize: 12, opacity: 0.9, lineHeight: 1.5 }}>Al cerrar cada ciclo de 4 semanas: <b>$20</b> al promotor más regular + <b>$20</b> al vendedor más regular.</p>
+            </div>
+            <p style={{ margin: "12px 0 0", fontSize: 11, opacity: 0.7, textAlign: "center" }}>$40 × 4 semanas + $40 consistencia = <b>$200</b></p>
           </div>
           <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14 }}>
             <p style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#22c55e" }}>💼 Vendedores — cómo participan</p>
@@ -748,7 +755,7 @@ function AppAuthenticated({ session, onLogout }) {
           {historialWeeks.length > 0 && (
             <div style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", borderRadius: 18, padding: 20, marginBottom: 20, color: "white" }}>
               <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 800 }}>⭐ Bonus de Consistencia — Ciclo {consistencia.cycleNumber}</p>
-              <p style={{ margin: "0 0 6px", fontSize: 11, opacity: 0.8 }}>El $20 USD extra se entrega al final de cada ciclo de 4 semanas · al que más veces ganó en ese período</p>
+              <p style={{ margin: "0 0 6px", fontSize: 11, opacity: 0.8 }}>Al cerrar cada ciclo de 4 semanas: $20 al promotor más regular + $20 al vendedor más regular (los que más veces ganaron en el período)</p>
               <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
                 {[1,2,3,4].map(n => (
                   <div key={n} style={{ flex: 1, height: 6, borderRadius: 4, background: n <= consistencia.semanas ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.25)" }} />
