@@ -110,20 +110,86 @@ function calcMetrics(registros) {
   return { byPromotor, byVendedor, bySucursal };
 }
 
+// Puntaje semanal HONESTO — cargar gente NUNCA resta.
+// Premia hacer entrar (cantidad), vender (cierre) y facturar (calidad).
+// Reemplaza la fórmula tóxica que restaba -1.5 e incentivaba esconder no-compradores.
 function calcPuntos(d) {
-  // Fórmula v2: premia calidad y facturación, penaliza no-cierre
-  const vendidos   = d.vendidos  || 0;
-  const ingresaron = d.ingresaron || 0;
-  const noVendidos = Math.max(0, ingresaron - vendidos);
-  const bonusFact  = Math.floor((d.monto || 0) / 200000);
-  return (vendidos * 3) - (noVendidos * 1.5) + bonusFact;
+  const ingresaron = d.ingresaron || 0;                    // 🏃 cantidad
+  const vendidos   = d.vendidos   || 0;                    // 💼 cierre
+  const bonusFact  = Math.floor((d.monto || 0) / 100000);  // ⭐ facturación
+  return ingresaron * 1 + vendidos * 3 + bonusFact;
+}
+
+// ─── SISTEMA DE RANGOS (carrera acumulada · nunca baja) ──────────────────────
+// Umbrales calibrados a mano sobre la serie real (n=6 jugadores, sin filas basura).
+const RANGOS = [
+  { nombre: "Bronce",   emoji: "🥉", min: 0,     color: "#cd7f32" },
+  { nombre: "Plata",    emoji: "🥈", min: 3000,  color: "#94a3b8" },
+  { nombre: "Oro",      emoji: "🥇", min: 6000,  color: "#f59e0b" },
+  { nombre: "Platino",  emoji: "💎", min: 10000, color: "#22d3ee" },
+  { nombre: "Diamante", emoji: "🔷", min: 15000, color: "#3b82f6" },
+  { nombre: "Leyenda",  emoji: "👑", min: 22000, color: "#8b5cf6" },
+];
+
+// Roster real del equipo — deja afuera basura histórica ("Cambio ", "Ger", tests).
+const ROSTER_REAL = ["Nury", "Brian", "Martín", "Jimmy", "Marcelo", "Alexandra", "Sebastián"];
+function normNombre(n) { return (n || "").trim(); }
+function esRosterReal(n) { return ROSTER_REAL.includes(normNombre(n)); }
+
+// Mínimo de ventas para calificar al podio de CALIDAD (evita flukes de 1 venta grande).
+const MIN_VENTAS_CALIDAD = 3;
+
+// XP de carrera por persona, sobre TODA la serie histórica.
+// Promotor: +10 por persona que hizo ingresar (venda o no → cargar nunca resta).
+// Vendedor: +30 por venta + monto/10000 (premia ticket alto).
+function calcCarreraXP(registros) {
+  const xp = {};
+  const add = (nombre, pts) => {
+    const n = normNombre(nombre);
+    if (!n) return;
+    xp[n] = (xp[n] || 0) + pts;
+  };
+  registros.forEach(r => {
+    if (r.ingreso) add(r.promotor, 10 * (r.grupoSize || 1));
+    if (r.vendido) add(r.vendedor, 30 + (r.monto || 0) / 10000);
+  });
+  return xp;
+}
+
+// Dado un XP total, devuelve rango actual, siguiente, progreso (0-1) y cuánto falta.
+function rangoDeXP(xp) {
+  let actual = RANGOS[0], siguiente = null;
+  for (let i = 0; i < RANGOS.length; i++) {
+    if (xp >= RANGOS[i].min) { actual = RANGOS[i]; siguiente = RANGOS[i + 1] || null; }
+  }
+  const progreso = siguiente ? (xp - actual.min) / (siguiente.min - actual.min) : 1;
+  const falta = siguiente ? Math.max(0, Math.ceil(siguiente.min - xp)) : 0;
+  return { actual, siguiente, progreso, falta };
 }
 
 function getWinnersForWeek(registros) {
   const m = calcMetrics(registros);
-  const promotorWinner = Object.entries(m.byPromotor).sort((a, b) => calcPuntos(b[1]) - calcPuntos(a[1]))[0];
-  const vendedorWinner = Object.entries(m.byVendedor).sort((a, b) => b[1].monto - a[1].monto)[0];
-  return { promotorWinner, vendedorWinner, metrics: m };
+  const proms = Object.entries(m.byPromotor);
+
+  // 🏃 CANTIDAD — quién hizo entrar más gente a la oficina (corroborado por el vendedor).
+  const cantidadWinner = proms.slice()
+    .sort((a, b) => (b[1].ingresaron || 0) - (a[1].ingresaron || 0))[0];
+
+  // ⭐ CALIDAD — mejor ticket promedio, con gate de MIN_VENTAS_CALIDAD ventas.
+  //    Formato: [nombre, metrics, ticketPromedio]
+  const calidadWinner = proms
+    .filter(([, d]) => (d.vendidos || 0) >= MIN_VENTAS_CALIDAD)
+    .map(([n, d]) => [n, d, (d.monto || 0) / (d.vendidos || 1)])
+    .sort((a, b) => b[2] - a[2])[0];
+
+  // 💼 VENTA — vendedor con más facturación.
+  const ventaWinner = Object.entries(m.byVendedor).sort((a, b) => b[1].monto - a[1].monto)[0];
+
+  // Aliases retro-compatibles con el render existente.
+  const promotorWinner = proms.slice().sort((a, b) => calcPuntos(b[1]) - calcPuntos(a[1]))[0];
+  const vendedorWinner = ventaWinner;
+
+  return { cantidadWinner, calidadWinner, ventaWinner, promotorWinner, vendedorWinner, metrics: m };
 }
 
 function MiniPie({ value, max, color, label, sub }) {
@@ -161,8 +227,8 @@ function WeekCard({ weekSat, weekFri, registros, isOpen, onToggle, weekNum, priv
   const nivelPromotor = (p) => {
     const d = metrics.byPromotor[p] || {};
     const pts = calcPuntos(d);
-    if (pts >= 60) return { nivel: "🥇 Oro", color: "#f59e0b" };
-    if (pts >= 30) return { nivel: "🥈 Plata", color: "#94a3b8" };
+    if (pts >= 25) return { nivel: "🥇 Oro", color: "#f59e0b" };
+    if (pts >= 12) return { nivel: "🥈 Plata", color: "#94a3b8" };
     return { nivel: "🥉 Bronce", color: "#cd7f32" };
   };
 
@@ -345,8 +411,8 @@ function AppAuthenticated({ session, onLogout }) {
   const submitForm = async (fase) => {
     setSaving(true);
     const reg = {
-      promotor: form.promotor, sucursal: form.sucursal, vendedor: form.vendedor,
-      pasajero: form.pasajero, whatsapp: form.whatsapp || null,
+      promotor: (form.promotor || "").trim(), sucursal: form.sucursal, vendedor: (form.vendedor || "").trim(),
+      pasajero: (form.pasajero || "").trim(), whatsapp: form.whatsapp || null,
       grupoSize: form.grupoSize, intereses: form.intereses,
       ingreso: fase !== "calle",
       vendido: fase === "vendido" ? true : fase === "ingreso" ? null : false,
@@ -412,10 +478,16 @@ function AppAuthenticated({ session, onLogout }) {
   const nivelPromotor = (p) => {
     const d = metrics.byPromotor[p] || {};
     const pts = calcPuntos(d);
-    if (pts >= 60) return { nivel: "🥇 Oro", color: "#f59e0b" };
-    if (pts >= 30) return { nivel: "🥈 Plata", color: "#94a3b8" };
+    if (pts >= 25) return { nivel: "🥇 Oro", color: "#f59e0b" };
+    if (pts >= 12) return { nivel: "🥈 Plata", color: "#94a3b8" };
     return { nivel: "🥉 Bronce", color: "#cd7f32" };
   };
+
+  // XP de carrera sobre TODA la serie histórica (sembrada) → rango personal por jugador.
+  const carreraXP = calcCarreraXP(registros);
+  const rankingCarrera = ROSTER_REAL
+    .map(n => ({ nombre: n, xp: Math.round(carreraXP[n] || 0) }))
+    .sort((a, b) => b.xp - a.xp);
 
   // Historial: agrupar por semana excluyendo semana actual
   const byWeek = groupByWeek(registros);
@@ -532,37 +604,45 @@ function AppAuthenticated({ session, onLogout }) {
             <div style={{ background: "linear-gradient(135deg,#1e293b,#334155)", borderRadius: 20, padding: 20, marginBottom: 20, color: "white" }}>
               <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 700, opacity: 0.7, letterSpacing: 1 }}>🏅 GANADORES SEMANA ANTERIOR</p>
               <p style={{ margin: "0 0 14px", fontSize: 12, opacity: 0.6 }}>{fmtDate(prevWeekRange.sat)} → {fmtDate(prevWeekRange.fri)}</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div style={{ background: "linear-gradient(135deg,rgba(245,158,11,0.3),rgba(249,115,22,0.3))", borderRadius: 14, padding: "16px", border: "1px solid rgba(245,158,11,0.4)" }}>
-                  <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, opacity: 0.8 }}>🏃 MEJOR PROMOTOR</p>
-                  {prevWinners.promotorWinner ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
+                <div style={{ background: "linear-gradient(135deg,rgba(14,165,233,0.3),rgba(2,132,199,0.3))", borderRadius: 14, padding: "16px", border: "1px solid rgba(14,165,233,0.4)" }}>
+                  <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, opacity: 0.8 }}>🏃 CANTIDAD</p>
+                  {prevWinners.cantidadWinner ? (
                     <>
-                      <p style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800 }}>{prevWinners.promotorWinner[0]}</p>
-                      <p style={{ margin: "0 0 2px", fontSize: 12, opacity: 0.9 }}>
-                        {calcPuntos(prevWinners.promotorWinner[1])} puntos
+                      <p style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800 }}>{prevWinners.cantidadWinner[0]}</p>
+                      <p style={{ margin: "0 0 8px", fontSize: 11, opacity: 0.75 }}>
+                        {prevWinners.cantidadWinner[1].ingresaron} personas ingresadas
                       </p>
-                      <p style={{ margin: "0 0 8px", fontSize: 11, opacity: 0.7 }}>
-                        {prevWinners.promotorWinner[1].personas} contactos · {prevWinners.promotorWinner[1].ingresaron} ingresos · {prevWinners.promotorWinner[1].vendidos} ventas
-                      </p>
-                      <div style={{ background: "rgba(245,158,11,0.4)", borderRadius: 8, padding: "8px 12px", display: "inline-block" }}>
-                        <p style={{ margin: 0, fontWeight: 800, fontSize: 13 }}>💵 Premio: $20 USD</p>
+                      <div style={{ background: "rgba(14,165,233,0.4)", borderRadius: 8, padding: "6px 10px", display: "inline-block" }}>
+                        <p style={{ margin: 0, fontWeight: 800, fontSize: 12 }}>💵 $50 USD · 25%</p>
                       </div>
                     </>
                   ) : <p style={{ margin: 0, fontSize: 13, opacity: 0.7 }}>Sin datos</p>}
                 </div>
-                <div style={{ background: "linear-gradient(135deg,rgba(34,197,94,0.3),rgba(22,163,74,0.3))", borderRadius: 14, padding: "16px", border: "1px solid rgba(34,197,94,0.4)" }}>
-                  <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, opacity: 0.8 }}>💼 MEJOR VENDEDOR</p>
-                  {prevWinners.vendedorWinner ? (
+                <div style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.3),rgba(124,58,237,0.3))", borderRadius: 14, padding: "16px", border: "1px solid rgba(139,92,246,0.4)" }}>
+                  <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, opacity: 0.8 }}>⭐ CALIDAD</p>
+                  {prevWinners.calidadWinner ? (
                     <>
-                      <p style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800 }}>{prevWinners.vendedorWinner[0]}</p>
-                      <p style={{ margin: "0 0 2px", fontSize: 12, opacity: 0.9 }}>
-                        {prevWinners.vendedorWinner[1].ventas} ventas
+                      <p style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800 }}>{prevWinners.calidadWinner[0]}</p>
+                      <p style={{ margin: "0 0 8px", fontSize: 11, opacity: 0.75 }}>
+                        ticket {hideMoney(Math.round(prevWinners.calidadWinner[2]), privacyMode)} · {prevWinners.calidadWinner[1].vendidos} ventas
                       </p>
-                      <p style={{ margin: "0 0 8px", fontSize: 11, opacity: 0.7 }}>
-                        {hideMoney(prevWinners.vendedorWinner[1].monto, privacyMode)} facturado
+                      <div style={{ background: "rgba(139,92,246,0.4)", borderRadius: 8, padding: "6px 10px", display: "inline-block" }}>
+                        <p style={{ margin: 0, fontWeight: 800, fontSize: 12 }}>💵 $50 USD · 25%</p>
+                      </div>
+                    </>
+                  ) : <p style={{ margin: 0, fontSize: 13, opacity: 0.7 }}>Sin calificados (mín. 3 ventas)</p>}
+                </div>
+                <div style={{ background: "linear-gradient(135deg,rgba(34,197,94,0.3),rgba(22,163,74,0.3))", borderRadius: 14, padding: "16px", border: "1px solid rgba(34,197,94,0.4)" }}>
+                  <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, opacity: 0.8 }}>💼 VENTA</p>
+                  {prevWinners.ventaWinner ? (
+                    <>
+                      <p style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800 }}>{prevWinners.ventaWinner[0]}</p>
+                      <p style={{ margin: "0 0 8px", fontSize: 11, opacity: 0.75 }}>
+                        {hideMoney(prevWinners.ventaWinner[1].monto, privacyMode)} · {prevWinners.ventaWinner[1].ventas} ventas
                       </p>
-                      <div style={{ background: "rgba(34,197,94,0.4)", borderRadius: 8, padding: "8px 12px", display: "inline-block" }}>
-                        <p style={{ margin: 0, fontWeight: 800, fontSize: 13 }}>💵 Premio: $20 USD</p>
+                      <div style={{ background: "rgba(34,197,94,0.4)", borderRadius: 8, padding: "6px 10px", display: "inline-block" }}>
+                        <p style={{ margin: 0, fontWeight: 800, fontSize: 12 }}>💵 $100 USD · 50%</p>
                       </div>
                     </>
                   ) : <p style={{ margin: 0, fontSize: 13, opacity: 0.7 }}>Sin ventas</p>}
@@ -579,12 +659,12 @@ function AppAuthenticated({ session, onLogout }) {
           <div style={{ background: "linear-gradient(135deg,#f59e0b,#f97316)", borderRadius: 18, padding: 20, marginBottom: 14, color: "white" }}>
             <p style={{ margin: "0 0 6px", fontSize: 13, fontWeight: 700, opacity: 0.8 }}>💰 CUÁNTO</p>
             <p style={{ margin: "0 0 10px", fontSize: 18, fontWeight: 800 }}>$200 USD por mes para repartir</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              {[["🏃 Promotores", "$100 USD", "$20/sem · $20 bonus"], ["💼 Vendedores", "$100 USD", "$20/sem · $20 bonus"]].map(([r, t, s]) => (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              {[["🏃 Cantidad", "25%", "$50 USD"], ["⭐ Calidad", "25%", "$50 USD"], ["💼 Venta", "50%", "$100 USD"]].map(([r, pct, t]) => (
                 <div key={r} style={{ background: "rgba(255,255,255,0.2)", borderRadius: 12, padding: "12px" }}>
-                  <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700 }}>{r}</p>
-                  <p style={{ margin: "0 0 2px", fontSize: 20, fontWeight: 800 }}>{t}</p>
-                  <p style={{ margin: 0, fontSize: 11, opacity: 0.85 }}>{s}</p>
+                  <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 700 }}>{r}</p>
+                  <p style={{ margin: "0 0 2px", fontSize: 20, fontWeight: 800 }}>{pct}</p>
+                  <p style={{ margin: 0, fontSize: 11, opacity: 0.85 }}>{t}</p>
                 </div>
               ))}
             </div>
@@ -609,15 +689,46 @@ function AppAuthenticated({ session, onLogout }) {
               <p style={{ margin: 0, fontSize: 12, color: "#0c4a6e", lineHeight: 1.5 }}>Los registros se pueden editar hasta <b>2 horas</b> después de cargados. Pasado ese tiempo quedan fijos para garantizar la integridad del concurso.</p>
             </div>
           </div>
+          {/* ── REGLA DE ORO ── */}
+          <div style={{ background: "linear-gradient(135deg,#16a34a,#22c55e)", borderRadius: 18, padding: 20, marginBottom: 14, color: "white" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 13, fontWeight: 700, opacity: 0.85 }}>🎯 LA REGLA DE ORO</p>
+            <p style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 800, lineHeight: 1.3 }}>Cargá a TODA persona que atendés, venda o no venda.</p>
+            <p style={{ margin: 0, fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>Cargar nunca resta. Al contrario: cada persona que hacés entrar te suma. El que esconde gente, pierde.</p>
+          </div>
+
+          {/* ── TRIPLE PODIO ── */}
           <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 14 }}>
-            <p style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#6366f1" }}>🏃 Promotores — sistema de puntos</p>
-            {[["💰", "Que se venda", "+3 pts por persona"], ["🏢", "Ingresó pero NO se vendió", "-1.5 pts por persona"], ["📈", "Facturación", "+1 pt cada $200K vendidos"], ["🔄", "Retorno que compra", "+3 pts extra"]].map(([ico, accion, pts]) => (
-              <div key={accion} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
-                <span style={{ fontSize: 22, width: 32, textAlign: "center" }}>{ico}</span>
-                <div style={{ flex: 1 }}><p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{accion}</p></div>
-                <span style={{ background: "#ede9fe", color: "#6366f1", padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>{pts}</span>
+            <p style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 800, color: "#1e293b" }}>🏆 Cómo se gana cada semana — Triple Podio</p>
+            <p style={{ margin: "0 0 14px", fontSize: 12, color: "#94a3b8" }}>Hay tres campeones por semana. Podés ganar más de uno.</p>
+            {[
+              ["🏃", "Cantidad", "El que hizo entrar más gente a la oficina. No importa si compraron: importa que entraron.", "#0ea5e9", "25% del premio"],
+              ["⭐", "Calidad", "El que trajo la gente que más gastó en promedio (ticket alto). Mín. 3 ventas para calificar.", "#8b5cf6", "25% del premio"],
+              ["💼", "Venta", "El que más facturó cerrando. El rey del cierre.", "#22c55e", "50% del premio"],
+            ].map(([ico, titulo, desc, color, premio]) => (
+              <div key={titulo} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 0", borderBottom: "1px solid #f1f5f9" }}>
+                <span style={{ fontSize: 26, width: 34, textAlign: "center" }}>{ico}</span>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: "0 0 2px", fontWeight: 800, fontSize: 14, color }}>{titulo}</p>
+                  <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>{desc}</p>
+                </div>
+                <span style={{ background: color + "18", color, padding: "4px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" }}>{premio}</span>
               </div>
             ))}
+          </div>
+
+          {/* ── RANGO PERSONAL ── */}
+          <div style={{ background: "linear-gradient(135deg,#0f172a,#1e293b)", borderRadius: 18, padding: 20, marginBottom: 14, color: "white" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 800 }}>📈 Tu Rango — la medalla que sube y nunca baja</p>
+            <p style={{ margin: "0 0 14px", fontSize: 12, opacity: 0.7, lineHeight: 1.5 }}>Aparte de la semana, tenés un rango personal que crece con TODO lo que hacés desde siempre. Cada persona que hacés entrar suma XP · cada venta suma más (y mientras más grande, más XP) · cada podio semanal que ganás suma un golpe extra. Tu XP nunca baja.</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "space-between" }}>
+              {RANGOS.map(rg => (
+                <div key={rg.nombre} style={{ textAlign: "center", flex: 1, minWidth: 60 }}>
+                  <div style={{ fontSize: 24 }}>{rg.emoji}</div>
+                  <p style={{ margin: "2px 0 0", fontSize: 11, fontWeight: 800, color: rg.color }}>{rg.nombre}</p>
+                  <p style={{ margin: 0, fontSize: 9, opacity: 0.5 }}>{rg.min.toLocaleString("es-AR")} XP</p>
+                </div>
+              ))}
+            </div>
           </div>
           <button onClick={() => { setView("form"); setStep(0); }} style={{ width: "100%", padding: "16px", borderRadius: 16, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white", border: "none", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 20 }}>
             ¡Empezar a registrar! 🚀
@@ -839,6 +950,44 @@ function AppAuthenticated({ session, onLogout }) {
             ))}
           </div>
           {dashTab === "operativo" && (
+            <>
+            {/* ─── RANGOS DEL EQUIPO (carrera acumulada · nunca baja) ─── */}
+            <div style={{ background: "linear-gradient(135deg,#0f172a,#1e293b)", borderRadius: 18, padding: 20, marginBottom: 14, color: "white" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexWrap: "wrap", gap: 6 }}>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>🏅 Rangos del equipo</h3>
+                <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.6, letterSpacing: 1 }}>CARRERA ACUMULADA · NUNCA BAJA</span>
+              </div>
+              <p style={{ margin: "0 0 16px", fontSize: 11, opacity: 0.65, lineHeight: 1.5 }}>
+                Tu rango sube con TODO lo que hacés desde siempre. Cada persona que hacés entrar suma · cada venta suma más · esconder gente te frena.
+              </p>
+              {rankingCarrera.map(({ nombre, xp }, i) => {
+                const { actual, siguiente, progreso, falta } = rangoDeXP(xp);
+                return (
+                  <div key={nombre} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 14, padding: "12px 14px", marginBottom: 8, border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.5, width: 16 }}>{i + 1}</span>
+                      <span style={{ fontSize: 22 }}>{actual.emoji}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontWeight: 800, fontSize: 14 }}>{nombre}</p>
+                        <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: actual.color }}>{actual.nombre}</p>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <p style={{ margin: 0, fontSize: 14, fontWeight: 800 }}>{hideNum(xp.toLocaleString("es-AR"))}</p>
+                        <p style={{ margin: 0, fontSize: 9, opacity: 0.55, fontWeight: 700 }}>XP</p>
+                      </div>
+                    </div>
+                    <div style={{ height: 8, borderRadius: 6, background: "rgba(255,255,255,0.12)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: (Math.round(progreso * 100)) + "%", borderRadius: 6, background: "linear-gradient(90deg," + actual.color + "," + (siguiente ? siguiente.color : actual.color) + ")", transition: "width 0.8s ease" }} />
+                    </div>
+                    <p style={{ margin: "6px 0 0", fontSize: 10, opacity: 0.6, textAlign: "right" }}>
+                      {siguiente
+                        ? "faltan " + hideNum(falta.toLocaleString("es-AR")) + " XP para " + siguiente.emoji + " " + siguiente.nombre
+                        : "👑 Rango máximo alcanzado"}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 14 }}>
               <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
                 <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700 }}>🎯 Embudo</h3>
@@ -895,6 +1044,7 @@ function AppAuthenticated({ session, onLogout }) {
                 )}
               </div>
             </div>
+            </>
           )}
           {dashTab === "analitico" && (
             <div>
