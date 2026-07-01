@@ -1009,7 +1009,7 @@ function AppAuthenticated({ session, onLogout }) {
                 <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700 }}>🏆 Promotores</h3>
                 {Object.keys(metrics.byPromotor).length === 0 && <p style={{ color: "#94a3b8", fontSize: 12 }}>Sin datos esta semana</p>}
                 {Object.entries(metrics.byPromotor).sort((a, b) => calcPuntos(b[1]) - calcPuntos(a[1])).map(([n, d], i) => {
-                  const nv = nivelPromotor(n);
+                  const rg = rangoDeXP(carreraXP[normNombre(n)] || 0).actual;
                   return (
                     <div key={n} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "8px 10px", borderRadius: 10, background: "#f8fafc" }}>
                       <span style={{ fontSize: 14, fontWeight: 800, color: "#94a3b8", width: 18 }}>{i + 1}</span>
@@ -1017,7 +1017,7 @@ function AppAuthenticated({ session, onLogout }) {
                         <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{n}</p>
                         <p style={{ margin: 0, fontSize: 11, color: "#64748b" }}>{d.personas} cont · {d.ingresaron} ing · {d.vendidos} ventas</p>
                       </div>
-                      <span style={{ background: nv.color + "22", color: nv.color, padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700 }}>{nv.nivel}</span>
+                      <span title={"Rango de carrera: " + rg.nombre} style={{ background: rg.color + "22", color: rg.color, padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" }}>{rg.emoji} {rg.nombre}</span>
                     </div>
                   );
                 })}
@@ -1039,13 +1039,13 @@ function AppAuthenticated({ session, onLogout }) {
               <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
                 <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700 }}>📍 Por sucursal</h3>
                 {sucursalPieData.length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12, textAlign: "center", marginTop: 30 }}>Sin ventas</p> : (
-                  <ResponsiveContainer width="100%" height={160}>
+                  <ResponsiveContainer width="100%" height={210}>
                     <PieChart>
-                      <Pie data={sucursalPieData} cx="40%" cy="50%" outerRadius={65} dataKey="value" label={({ percent }) => Math.round(percent * 100) + "%"} labelLine={false} fontSize={11}>
+                      <Pie data={sucursalPieData} cx="50%" cy="45%" outerRadius={65} dataKey="value" label={({ percent }) => percent > 0.05 ? Math.round(percent * 100) + "%" : ""} labelLine={false} fontSize={11}>
                         {sucursalPieData.map((e, i) => <Cell key={i} fill={SUC_COLORS[e.name] || COLORS[i]} />)}
                       </Pie>
                       <Tooltip formatter={(v, n, p) => [v + " ventas · " + hideMoney(p.payload.monto, privacyMode), p.payload.name]} />
-                      <Legend iconSize={10} layout="vertical" align="right" verticalAlign="middle" wrapperStyle={{ fontSize: 11 }} />
+                      <Legend iconSize={10} layout="horizontal" align="center" verticalAlign="bottom" wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
                     </PieChart>
                   </ResponsiveContainer>
                 )}
@@ -1058,13 +1058,14 @@ function AppAuthenticated({ session, onLogout }) {
               <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)", marginBottom: 14 }}>
                 <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700 }}>Actividad por promotor</h3>
                 {promotorBarData.length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>Sin datos</p> : (
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={promotorBarData} margin={{ left: -20 }}>
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip /><Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                      <Bar dataKey="Contactos" fill="#6366f1" radius={[3, 3, 0, 0]} />
-                      <Bar dataKey="Ingresos" fill="#0ea5e9" radius={[3, 3, 0, 0]} />
-                      <Bar dataKey="Vendidos" fill="#22c55e" radius={[3, 3, 0, 0]} />
+                  <ResponsiveContainer width="100%" height={Math.max(220, promotorBarData.length * 72 + 40)}>
+                    <BarChart data={promotorBarData} layout="vertical" margin={{ left: 4, right: 12, top: 4, bottom: 4 }} barCategoryGap="20%">
+                      <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fontWeight: 700 }} width={68} interval={0} />
+                      <Tooltip cursor={{ fill: "#f1f5f9" }} /><Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="Contactos" fill="#6366f1" radius={[0, 3, 3, 0]} />
+                      <Bar dataKey="Ingresos" fill="#0ea5e9" radius={[0, 3, 3, 0]} />
+                      <Bar dataKey="Vendidos" fill="#22c55e" radius={[0, 3, 3, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -1072,10 +1073,10 @@ function AppAuthenticated({ session, onLogout }) {
               <div style={{ background: "white", borderRadius: 18, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)", marginBottom: 14 }}>
                 <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700 }}>Intereses más frecuentes</h3>
                 {interesesData.length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12, textAlign: "center" }}>Sin datos</p> : (
-                  <ResponsiveContainer width="100%" height={200}>
-                    <PieChart><Pie data={interesesData} cx="50%" cy="50%" outerRadius={75} dataKey="value" label={({ percent }) => Math.round(percent * 100) + "%"} labelLine={false} fontSize={10}>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart><Pie data={interesesData} cx="50%" cy="45%" outerRadius={70} dataKey="value" label={({ percent }) => percent > 0.05 ? Math.round(percent * 100) + "%" : ""} labelLine={false} fontSize={10}>
                       {interesesData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie><Tooltip /><Legend iconSize={8} wrapperStyle={{ fontSize: 10 }} /></PieChart>
+                    </Pie><Tooltip /><Legend iconSize={8} layout="horizontal" align="center" verticalAlign="bottom" wrapperStyle={{ fontSize: 10, paddingTop: 8 }} /></PieChart>
                   </ResponsiveContainer>
                 )}
               </div>
